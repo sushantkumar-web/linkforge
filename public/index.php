@@ -1,4 +1,5 @@
 <?php
+define('LINKFORGE_START', microtime(true));
 // 1. Hardened Session Settings (Cloudflare & Subpath Aware)
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
     || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')

@@ -12,6 +12,7 @@ $currentURI = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     <!-- Font Awesome via Cloudflare cdnjs -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="<?= $baseURL ?>/assets/css/app.css">
+    
 </head>
 <body>
 <div class="app-layout">
@@ -50,7 +51,7 @@ $currentURI = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
             </a>
         </nav>
         <div class="sidebar-footer">
-            <span>v1.0.1</span>
+            <span>v1.0.2</span>
             <span style="color: var(--status-active-text); display: flex; align-items: center; gap: 6px;">
                 <i class="fa-solid fa-circle" style="font-size: 6px;"></i> Live
             </span>

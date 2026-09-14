@@ -389,3 +389,49 @@ a {
   .sidebar .nav-text, .sidebar-header span, .nav-section-title, .sidebar-footer { display: none; }
   .main-wrapper { margin-left: 68px; }
 }
+/* Flatpickr Design System Overrides */
+.flatpickr-calendar {
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+    font-family: inherit !important;
+}
+.flatpickr-day.selected, 
+.flatpickr-day.startRange, 
+.flatpickr-day.endRange {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: #fff !important;
+}
+.flatpickr-day:hover {
+    background: var(--bg-surface-hover) !important;
+}
+.flatpickr-time {
+    border-top: 1px solid var(--border-subtle) !important;
+}
+.flatpickr-time input:hover, 
+.flatpickr-time input:focus {
+    background: var(--bg-app) !important;
+}
+.preset-pills {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.preset-btn {
+    background: var(--bg-app);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.preset-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+}

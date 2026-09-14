@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Core\Database;
+use App\Core\Cache;
 use PDOException;
 
 class LinkController {
@@ -67,7 +68,6 @@ class LinkController {
 
         $pdo = Database::getInstance();
         try {
-            // FIXED: Included pass_hash in columns and values list
             $stmt = $pdo->prepare("INSERT INTO links (user_id, title, destination_url, short_code, expires_at, pass_hash) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['user_id'], $title ?: null, $url, $slug, $expires_at, $pass_hash]);
             $link_id = $pdo->lastInsertId();
@@ -88,6 +88,7 @@ class LinkController {
         $title = trim($_POST['title'] ?? '');
         $url = filter_var($_POST['url'], FILTER_SANITIZE_URL);
         $expires_at = !empty($_POST['expires_at']) ? $_POST['expires_at'] : null;
+        $removePassword = !empty($_POST['remove_password']);
 
         if (!filter_var($url, FILTER_VALIDATE_URL)) die("Invalid URL");
 
@@ -109,13 +110,27 @@ class LinkController {
 
         $pdo = Database::getInstance();
 
-        // FIXED: Clean try/catch block without syntax errors
+        // 1. Purge cache before applying updates
+        $stmtSlug = $pdo->prepare("SELECT short_code FROM links WHERE id = ? AND user_id = ?");
+        $stmtSlug->execute([$id, $_SESSION['user_id']]);
+        $slug = $stmtSlug->fetchColumn();
+        if ($slug) {
+            Cache::forget($slug);
+        }
+
+        // 2. Apply updates to MySQL
         try {
-            if (!empty($_POST['password'])) {
+            if ($removePassword) {
+                // Explicitly remove password protection
+                $stmt = $pdo->prepare("UPDATE links SET title = ?, destination_url = ?, expires_at = ?, pass_hash = NULL WHERE id = ? AND user_id = ?");
+                $stmt->execute([$title ?: null, $url, $expires_at, $id, $_SESSION['user_id']]);
+            } elseif (!empty($_POST['password'])) {
+                // Update to new password
                 $pass_hash = password_hash($_POST['password'], PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("UPDATE links SET title = ?, destination_url = ?, expires_at = ?, pass_hash = ? WHERE id = ? AND user_id = ?");
                 $stmt->execute([$title ?: null, $url, $expires_at, $pass_hash, $id, $_SESSION['user_id']]);
             } else {
+                // Retain current password protection status
                 $stmt = $pdo->prepare("UPDATE links SET title = ?, destination_url = ?, expires_at = ? WHERE id = ? AND user_id = ?");
                 $stmt->execute([$title ?: null, $url, $expires_at, $id, $_SESSION['user_id']]);
             }
@@ -134,6 +149,15 @@ class LinkController {
         if (!isset($_SESSION['user_id'])) die("Unauthorized");
         $id = $_POST['link_id'] ?? 0;
         $pdo = Database::getInstance();
+
+        // Purge cache before status flip
+        $stmtSlug = $pdo->prepare("SELECT short_code FROM links WHERE id = ? AND user_id = ?");
+        $stmtSlug->execute([$id, $_SESSION['user_id']]);
+        $slug = $stmtSlug->fetchColumn();
+        if ($slug) {
+            Cache::forget($slug);
+        }
+
         $stmt = $pdo->prepare("UPDATE links SET status = IF(status='active', 'disabled', 'active') WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, $_SESSION['user_id']]);
 
@@ -146,6 +170,14 @@ class LinkController {
         if (!isset($_SESSION['user_id'])) die("Unauthorized");
         $id = $_POST['link_id'] ?? 0;
         $pdo = Database::getInstance();
+
+        // Purge cache before record deletion
+        $stmtSlug = $pdo->prepare("SELECT short_code FROM links WHERE id = ? AND user_id = ?");
+        $stmtSlug->execute([$id, $_SESSION['user_id']]);
+        $slug = $stmtSlug->fetchColumn();
+        if ($slug) {
+            Cache::forget($slug);
+        }
 
         $pdo->prepare("DELETE FROM click_logs WHERE link_id = ?")->execute([$id]);
         $stmt = $pdo->prepare("DELETE FROM links WHERE id = ? AND user_id = ?");
