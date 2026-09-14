@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# 1. Force Apache to pass the Authorization header to PHP
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
+# 2. Standard router logic
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?uri=$1 [QSA,L]
