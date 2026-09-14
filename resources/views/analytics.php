@@ -32,16 +32,34 @@
         <a href="<?= $baseURL ?>/" class="back-link">← Back to Dashboard</a>
         
         <div class="header-card">
-            <div>
-                <div class="link-title">/<?= htmlspecialchars($link['short_code']) ?></div>
-                <div class="link-dest"><?= htmlspecialchars($link['destination_url']) ?></div>
-            </div>
-            <div class="link-clicks">
-                <h2><?= number_format($link['clicks']) ?></h2>
-                <span>Total Clicks</span>
-            </div>
+    <div>
+        <div class="link-title">/<?= htmlspecialchars((string)$link['short_code']) ?></div>
+        <div class="link-dest"><?= htmlspecialchars((string)$link['destination_url']) ?></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 24px;">
+        <a href="<?= $baseURL ?>/analytics/export?id=<?= $link['id'] ?>" class="btn-primary" style="text-decoration: none; padding: 8px 14px; font-size: 13px;">Export CSV</a>
+        <div class="link-clicks">
+            <h2><?= number_format((int)$link['clicks']) ?></h2>
+            <span>Total Clicks</span>
         </div>
-
+    </div>
+</div>
+        
+<!-- 7-Day Performance Timeline -->
+            <div style="background: #16191F; border: 1px solid #282C34; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                <h3 style="font-size: 14px; color: #9CA3AF; margin-bottom: 20px; font-weight: 500;">Activity (Last 7 Days)</h3>
+                <div style="display: flex; align-items: flex-end; gap: 16px; height: 140px; padding-top: 10px;">
+                    <?php foreach($timeline as $day): 
+                        $heightPercent = max(6, round(($day['count'] / $maxClicks) * 100));
+                    ?>
+                        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; gap: 8px;">
+                            <span style="font-size: 11px; color: #9CA3AF; font-family: 'JetBrains Mono', monospace;"><?= $day['count'] ?></span>
+                            <div style="width: 100%; max-width: 42px; background: <?= $day['count'] > 0 ? '#5B5CE2' : '#282C34' ?>; height: <?= $heightPercent ?>%; border-radius: 4px 4px 0 0; transition: height 0.3s;"></div>
+                            <span style="font-size: 11px; color: #6B7280;"><?= explode(' ', $day['label'])[0] ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         <div class="grid">
             <!-- Referrers -->
             <div class="data-card">
