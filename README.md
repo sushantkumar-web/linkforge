@@ -1,31 +1,31 @@
-# LinkForge ⚡
+# LinkForge
 
-# LinkForge ⚡
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Release-v1.0.2-emerald.svg)](https://github.com/sushantkumar-web/linkforge/releases)
+[![PHP Version](https://img.shields.io/badge/PHP-%3E%3D_8.2-777BB4.svg)](https://php.net)
+[![Core Latency](https://img.shields.io/badge/Core_TTFB-<1ms-violet.svg)](#performance-architecture)
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Version](https://img.shields.io/badge/version-1.0.2-emerald.svg)](https://github.com/sushantkumar-web/linkforge/releases)
-[![Core Latency](https://img.shields.io/badge/Core_TTFB-<1ms-violet.svg)](https://github.com/sushantkumar-web/linkforge)
+High-performance, privacy-conscious link management and analytics engine built for native LAMP environments.
 
-> Fast, privacy-conscious, cPanel-first open-source link management and analytics platform.
+LinkForge provides the feature set of modern edge shorteners on ordinary shared hosting and entry-level virtual private servers. It requires zero Docker containers, zero Redis instances, and zero Node.js build pipelines.
 
-LinkForge is built for everyone—including developers and businesses running on ordinary shared hosting. Zero Docker, zero Redis, zero Node.js build steps required.
+---
 
-## Features
-- 🚀 **cPanel-First:** Upload ZIP, run the installer, done.
-- ⚡ **Lightweight Redirect Engine:** Blazing fast 302 redirects with low database overhead.
-- 🛡️ **Privacy-First Analytics:** Device, OS, browser, and referrer tracking without persistent raw IP logging.
-- 🎯 **Built-in UTM Builder:** Attach campaign parameters seamlessly.
-- 📱 **Dynamic QR Codes:** Instant PNG downloads for every link.
-- 🔑 **Developer REST API:** Token-authenticated JSON endpoints.
-- 🔒 **Security Hardened:** CSRF tokens, strict security headers, and rate limiting out of the box.
+## Architectural Highlights
 
-## Requirements
-- PHP 8.2 or higher
-- MySQL / MariaDB
-- Apache with `mod_rewrite` enabled
+* **Sub-Millisecond Execution:** Uses PHP OPcache file-backed memory compilation to serve hot redirects in under 1ms without querying MySQL during the lookup path.
+* **Non-Blocking Background Telemetry:** Dispatches HTTP 302 response headers immediately, severing the client connection via `fastcgi_finish_request()` before executing click increment and analytic logging queries.
+* **cPanel & Shared Hosting Native:** Operates within standard Apache/LiteSpeed environments with standard file permissions and a web-based GUI installer.
+* **Zero-Dependency Asset Pipeline:** Design system implemented with CSS custom properties, system font stacks, and Cloudflare-delivered vector iconography.
+* **Self-Contained Release Engine:** Built-in self-updater connects to the GitHub Releases API, pulls signed distribution packages, verifies schema versions, and executes incremental database migrations with zero downtime.
 
-## License
+---
 
-LinkForge is open-source software licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](LICENSE).
+## Performance Architecture
 
-Copyright (c) 2026 Sushant.
+Traditional PHP shorteners query MySQL synchronously on every hit, resulting in database queue saturation and connection exhaustion during traffic spikes:
+
+```text
+Traditional Shortener Request Flow:
+Client Request -> Parse PHP -> MySQL SELECT (5-15ms) -> MySQL UPDATE (10-20ms) -> MySQL INSERT (10-20ms) -> HTTP 302
+Total Perceived Latency: 25ms - 60ms+ (Idle) / 1000ms+ (Under Load)
