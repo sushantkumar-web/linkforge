@@ -1,0 +1,7 @@
+# linkforge/.htaccess
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Silently forward all requests to the /public directory
+    RewriteRule ^$ public/ [L]
+    RewriteRule (.*) public/$1 [L]
+</IfModule>
