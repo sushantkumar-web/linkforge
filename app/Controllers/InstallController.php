@@ -58,6 +58,9 @@ class InstallController {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     INDEX(user_id),
                     INDEX(short_code)
+                    expires_at DATETIME NULL,
+                    pass_hash VARCHAR(255) NULL,
+                    status ENUM('active', 'disabled') DEFAULT 'active',
                 );
 
                 CREATE TABLE IF NOT EXISTS click_logs (
@@ -103,11 +106,12 @@ class InstallController {
             ");
 
             // 3. Mark DB as Version 2
-            $pdo->exec("
-                INSERT INTO system_settings (setting_key, setting_value) 
-                VALUES ('db_version', '2') 
-                ON DUPLICATE KEY UPDATE setting_value = '2';
-            ");
+            // 3. Mark DB as Version 3
+$pdo->exec("
+    INSERT INTO system_settings (setting_key, setting_value) 
+    VALUES ('db_version', '3') 
+    ON DUPLICATE KEY UPDATE setting_value = '3';
+");
 
             // 4. Create Initial Administrator Account
             $hash = password_hash($admin_pass, PASSWORD_DEFAULT);

@@ -35,16 +35,18 @@ if (strpos($uri, '/api/v1/') !== false) {
     exit;
 }
 
-// 2. Short Link Redirect Engine
-if (!array_key_exists($uri, $routes['GET']) && $method === 'GET' && $uri !== '/') {
+// 2. Short Link Redirect Engine (Handles both GET visits and POST password unlocks)
+$isWebPostRoute = ($method === 'POST' && array_key_exists($uri, $routes['POST']));
+
+if (!array_key_exists($uri, $routes['GET']) && !$isWebPostRoute && $uri !== '/') {
     $slug = trim($uri, '/');
     $controller = new \App\Controllers\RedirectController();
     $controller->handle($slug);
     exit;
 }
 
-// 3. Web CSRF Protection Firewall (POST routes only, strictly exempting API and install)
-if ($method === 'POST' && strpos($uri, '/api/') === false && $uri !== '/install') {
+// 3. Web CSRF Protection Firewall (Protects dashboard POST routes only)
+if ($method === 'POST' && strpos($uri, '/api/') === false && $uri !== '/install' && $isWebPostRoute) {
     $token = $_POST['csrf_token'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
         http_response_code(403);

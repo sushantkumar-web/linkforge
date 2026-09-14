@@ -1,0 +1,54 @@
+/* public/assets/css/tokens.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Colors - Dark Theme (Default) */
+  --bg-app: #0F1115;
+  --bg-surface: #16191F;
+  --bg-surface-hover: #1C2027;
+  --bg-subtle: #1E222B;
+  
+  --border-color: #282C34;
+  --border-subtle: #1F232B;
+  
+  --text-primary: #F5F5F5;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  
+  /* Brand Accent */
+  --accent: #5B5CE2;
+  --accent-hover: #4B4CD0;
+  --accent-light: rgba(91, 92, 226, 0.12);
+  --accent-border: rgba(91, 92, 226, 0.3);
+
+  /* Status Colors */
+  --status-active-bg: rgba(16, 185, 129, 0.1);
+  --status-active-text: #10B981;
+  --status-disabled-bg: rgba(234, 179, 8, 0.1);
+  --status-disabled-text: #EAB308;
+  --status-expired-bg: rgba(239, 68, 68, 0.1);
+  --status-expired-text: #EF4444;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  /* Layout */
+  --sidebar-width: 230px;
+  --topbar-height: 56px;
+}

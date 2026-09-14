@@ -1,259 +1,210 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - LinkForge</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background-color: #0F1115; color: #F5F5F5; display: flex; min-height: 100vh; }
-        .sidebar { width: 240px; background-color: #0F1115; border-right: 1px solid #282C34; display: flex; flex-direction: column; padding: 24px 16px; }
-        .brand { font-size: 16px; font-weight: 600; margin-bottom: 32px; padding: 0 12px; }
-        .nav-group { margin-bottom: 24px; }
-        .nav-label { font-size: 11px; text-transform: uppercase; color: #6B7280; font-weight: 600; margin-bottom: 8px; padding: 0 12px; }
-        .nav-item { display: flex; align-items: center; padding: 8px 12px; color: #9CA3AF; text-decoration: none; font-size: 14px; border-radius: 6px; margin-bottom: 2px; }
-        .nav-item:hover, .nav-item.active { background-color: rgba(91, 92, 226, 0.1); color: #5B5CE2; }
-        .main { flex: 1; display: flex; flex-direction: column; }
-        .header { height: 64px; border-bottom: 1px solid #282C34; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; }
-        .content { padding: 32px; max-width: 1200px; margin: 0 auto; width: 100%; }
-        .page-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .btn-primary { background-color: #5B5CE2; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 14px; cursor: pointer; }
-        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px; }
-        .kpi-card { background-color: #16191F; border: 1px solid #282C34; border-radius: 12px; padding: 20px; }
-        .kpi-title { font-size: 13px; color: #9CA3AF; margin-bottom: 8px; }
-        .kpi-value { font-size: 24px; font-weight: 600; }
-        
-        .filter-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-        .filter-tab { color: #9CA3AF; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; }
-        .filter-tab.active { background: #16191F; color: #F5F5F5; border: 1px solid #282C34; }
-        
-        table { width: 100%; border-collapse: collapse; background: #16191F; border: 1px solid #282C34; border-radius: 12px; overflow: hidden; }
-        th { font-size: 11px; text-transform: uppercase; color: #6B7280; padding: 14px 20px; border-bottom: 1px solid #282C34; text-align: left; }
-        td { padding: 14px 20px; border-bottom: 1px solid #282C34; font-size: 13px; }
-        .btn-action { background: transparent; border: 1px solid #282C34; color: #9CA3AF; padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-        .btn-danger { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #EF4444; }
-    </style>
-</head>
-<body>
-    <div class="sidebar">
-        <div class="brand">LINKFORGE</div>
-        <div class="nav-group">
-            <a href="<?= $baseURL ?>/" class="nav-item active">Overview</a>
-            <a href="<?= $baseURL ?>/api-keys" class="nav-item">API Keys</a>
-            <a href="<?= $baseURL ?>/settings" class="nav-item">Settings</a>
-        </div>
+<?php
+ob_start();
+$baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
+?>
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+    <div>
+        <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 4px;">Links</h1>
+        <p style="font-size: 13px; color: var(--text-secondary);">Manage, track, and secure your short URLs.</p>
     </div>
-    
-    <div class="main">
-        <div class="header">
-            <input type="text" id="searchInput" placeholder="🔍 Search links (Press /)" style="background:transparent; border:none; color:#fff; outline:none; width:300px;">
-            <div>Sushant</div>
-        </div>
-
-        <div class="content">
-            <div class="page-title">
-                <h1>Links</h1>
-                <button class="btn-primary" onclick="document.getElementById('createModal').style.display='flex'">+ Create link</button>
-            </div>
-
-            <div class="kpi-grid">
-                <div class="kpi-card"><div class="kpi-title">Total clicks</div><div class="kpi-value"><?= number_format($total_clicks) ?></div></div>
-                <div class="kpi-card"><div class="kpi-title">Unique visitors</div><div class="kpi-value"><?= number_format($unique_visitors) ?></div></div>
-                <div class="kpi-card"><div class="kpi-title">Active links</div><div class="kpi-value"><?= number_format($active_links) ?></div></div>
-                <div class="kpi-card"><div class="kpi-title">Total links</div><div class="kpi-value"><?= number_format($total_links) ?></div></div>
-            </div>
-
-            <div class="filter-tabs">
-                <a href="<?= $baseURL ?>/?filter=all" class="filter-tab <?= $filter==='all'?'active':'' ?>">All</a>
-                <a href="<?= $baseURL ?>/?filter=active" class="filter-tab <?= $filter==='active'?'active':'' ?>">Active</a>
-                <a href="<?= $baseURL ?>/?filter=disabled" class="filter-tab <?= $filter==='disabled'?'active':'' ?>">Disabled</a>
-                <a href="<?= $baseURL ?>/?filter=expired" class="filter-tab <?= $filter==='expired'?'active':'' ?>">Expired</a>
-            </div>
-
-            <table id="linksTable">
-                <thead>
-                    <tr>
-                        <th>Link / Title</th>
-                        <th>Destination</th>
-                        <th>Clicks</th>
-                        <th>Status</th>
-                        <th>Expires</th>
-                        <th style="text-align: right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if(empty($recent_links)): ?>
-                        <tr><td colspan="6" style="text-align:center; padding:32px; color:#6B7280;">No links match this filter.</td></tr>
-                    <?php else: foreach($recent_links as $l): 
-                        $isExpired = $l['expires_at'] && strtotime($l['expires_at']) <= time();
-                    ?>
-                        <tr>
-                            <td>
-                                <div><a href="<?= $baseURL ?>/analytics?id=<?= $l['id'] ?>" style="color:#5B5CE2; font-family:'JetBrains Mono',monospace; font-weight:600; text-decoration:none;">/<?= htmlspecialchars($l['short_code']) ?></a></div>
-                                <div style="font-size:12px; color:#9CA3AF;"><?= htmlspecialchars($l['title'] ?: 'Untitled') ?></div>
-                                <?php if(!empty($l['tags'])): ?>
-    <div style="margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap;">
-        <?php foreach(explode(',', $l['tags']) as $tag): ?>
-            <span style="font-size: 10px; background: #282C34; color: #9CA3AF; padding: 2px 6px; border-radius: 4px;">#<?= htmlspecialchars($tag) ?></span>
-        <?php endforeach; ?>
-    </div>
-<?php endif; ?>
-                            </td>
-                            <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#9CA3AF;">
-                                <?= htmlspecialchars($l['destination_url']) ?>
-                            </td>
-                            <td><?= number_format($l['clicks']) ?></td>
-                            <td>
-                                <span style="font-size:11px; font-weight:600; text-transform:uppercase; padding:3px 8px; border-radius:4px;
-                                    <?= $isExpired ? 'background:rgba(239,68,68,0.1);color:#EF4444;' : ($l['status']==='active'?'background:rgba(16,185,129,0.1);color:#10B981;':'background:rgba(234,179,8,0.1);color:#EAB308;') ?>">
-                                    <?= $isExpired ? 'EXPIRED' : htmlspecialchars($l['status']) ?>
-                                </span>
-                            </td>
-                            <td style="font-size:12px; color:#6B7280;">
-                                <?= $l['expires_at'] ? date('M j, Y H:i', strtotime($l['expires_at'])) : 'Never' ?>
-                            </td>
-                            <td style="text-align: right; display: flex; justify-content: flex-end; gap: 6px; padding: 14px 20px;">
-                                <button class="btn-action" onclick="showNativeQR('<?= $baseURL . '/' . $l['short_code'] ?>', '/<?= $l['short_code'] ?>')">QR</button>
-                                <button class="btn-action" onclick="copyLink('<?= $baseURL . '/' . $l['short_code'] ?>')">Copy</button>
-                                <button class="btn-action" onclick='openEditModal(<?= json_encode($l) ?>)'>Edit</button>
-                                <form method="POST" action="<?= $baseURL ?>/links/toggle" style="margin:0;">
-                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                                    <input type="hidden" name="link_id" value="<?= $l['id'] ?>">
-                                    <button class="btn-action" type="submit"><?= $l['status']==='active'?'Disable':'Enable' ?></button>
-                                </form>
-                                <form method="POST" action="<?= $baseURL ?>/links/delete" style="margin:0;" onsubmit="return confirm('Delete this link and its analytics?');">
-                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                                    <input type="hidden" name="link_id" value="<?= $l['id'] ?>">
-                                    <button class="btn-action btn-danger" type="submit">Delete</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Create Modal -->
-    <div id="createModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:50; align-items:center; justify-content:center;">
-        <div style="background:#16191F; padding:32px; border-radius:12px; width:100%; max-width:440px; border:1px solid #282C34;">
-            <h2 style="font-size:18px; margin-bottom:20px;">Create a new link</h2>
-            <form method="POST" action="<?= $baseURL ?>/links/create">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                <div style="margin-bottom:12px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Title (optional)</label>
-                    <input type="text" name="title" placeholder="e.g. Summer Campaign" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:12px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Destination URL</label>
-                    <input type="url" name="url" placeholder="https://example.com/very/long/url" required style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:12px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Short code (optional)</label>
-                    <input type="text" name="slug" placeholder="e.g. sale2026" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:20px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Expiration Date/Time (optional)</label>
-                    <input type="datetime-local" name="expires_at" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:12px;">
-    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Tags (comma-separated)</label>
-    <input type="text" name="tags" placeholder="marketing, launch, blog" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
+    <button onclick="openModal('createModal')" class="btn btn-primary">+ Create link</button>
 </div>
-                <div style="display:flex; gap:12px;">
-                    <button type="button" onclick="document.getElementById('createModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid #282C34; color:#fff; border-radius:8px; cursor:pointer;">Cancel</button>
-                    <button type="submit" class="btn-primary" style="flex:1;">Create link</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:50; align-items:center; justify-content:center;">
-        <div style="background:#16191F; padding:32px; border-radius:12px; width:100%; max-width:440px; border:1px solid #282C34;">
-            <h2 style="font-size:18px; margin-bottom:20px;">Edit link</h2>
-            <form method="POST" action="<?= $baseURL ?>/links/update">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                <input type="hidden" name="link_id" id="editLinkId">
-                <div style="margin-bottom:12px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Title</label>
-                    <input type="text" name="title" id="editTitle" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:12px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Destination URL</label>
-                    <input type="url" name="url" id="editUrl" required style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:20px;">
-                    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Expiration Date/Time</label>
-                    <input type="datetime-local" name="expires_at" id="editExpiresAt" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
-                </div>
-                <div style="margin-bottom:12px;">
-    <label style="font-size:12px; color:#9CA3AF; display:block; margin-bottom:4px;">Tags (comma-separated)</label>
-    <input type="text" name="tags" id="editTags" style="width:100%; padding:10px; background:#0F1115; border:1px solid #282C34; border-radius:8px; color:#fff;">
+<!-- KPI Summary Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="label">Total clicks</div>
+        <div class="value"><?= number_format($total_clicks ?? 0) ?></div>
+    </div>
+    <div class="kpi-card">
+        <div class="label">Unique visitors</div>
+        <div class="value"><?= number_format($unique_visitors ?? 0) ?></div>
+    </div>
+    <div class="kpi-card">
+        <div class="label">Active links</div>
+        <div class="value"><?= number_format($active_links ?? 0) ?></div>
+    </div>
+    <div class="kpi-card">
+        <div class="label">Total links</div>
+        <div class="value"><?= number_format(count($recent_links)) ?></div>
+    </div>
 </div>
-                <div style="display:flex; gap:12px;">
-                    <button type="button" onclick="document.getElementById('editModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid #282C34; color:#fff; border-radius:8px; cursor:pointer;">Cancel</button>
-                    <button type="submit" class="btn-primary" style="flex:1;">Save changes</button>
-                </div>
-            </form>
-        </div>
+
+<!-- Links Table Card -->
+<div class="table-card">
+    <div class="table-tabs">
+        <a href="<?= $baseURL ?>/?filter=all" class="tab-item <?= ($filter === 'all') ? 'active' : '' ?>">All</a>
+        <a href="<?= $baseURL ?>/?filter=active" class="tab-item <?= ($filter === 'active') ? 'active' : '' ?>">Active</a>
+        <a href="<?= $baseURL ?>/?filter=disabled" class="tab-item <?= ($filter === 'disabled') ? 'active' : '' ?>">Disabled</a>
+        <a href="<?= $baseURL ?>/?filter=expired" class="tab-item <?= ($filter === 'expired') ? 'active' : '' ?>">Expired</a>
     </div>
 
-    <!-- Native SVG QR Modal -->
-    <div id="qrModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:50; align-items:center; justify-content:center;">
-        <div style="background:#16191F; padding:32px; border-radius:12px; width:100%; max-width:320px; border:1px solid #282C34; text-align:center;">
-            <h2 id="qrTitle" style="font-size:16px; margin-bottom:20px; font-family:'JetBrains Mono',monospace;">/slug</h2>
-            <div id="qrContainer" style="background:#fff; padding:12px; border-radius:8px; display:inline-block; margin-bottom:20px;">
-                <img id="qrImage" src="" alt="Native QR Code" style="width:200px; height:200px; display:block;">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Link / Title</th>
+                <th>Destination</th>
+                <th>Clicks</th>
+                <th>Status</th>
+                <th>Expires</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if(empty($recent_links)): ?>
+                <tr>
+                    <td colspan="6" style="text-align:center; padding: 48px; color: var(--text-muted);">
+                        No links found. Click <strong>+ Create link</strong> to generate your first short URL.
+                    </td>
+                </tr>
+            <?php endif; ?>
+
+            <?php foreach($recent_links as $l): 
+                if (empty($l['id'])) continue;
+                $isExpired = !empty($l['expires_at']) && strtotime($l['expires_at']) <= time();
+            ?>
+            <tr>
+                <td>
+                    <div>
+                        <a href="<?= $baseURL ?>/analytics?id=<?= $l['id'] ?>" class="font-mono" style="color: var(--accent); font-weight: 600;">/<?= htmlspecialchars($l['short_code']) ?></a>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary);"><?= htmlspecialchars($l['title'] ?? 'Untitled') ?></div>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
+                        <?php if (!empty($l['pass_hash'])): ?>
+                            <span class="badge" style="background: rgba(91,92,226,0.15); color: #8B8DF8; font-size: 10px;">🔒 Protected</span>
+                        <?php endif; ?>
+                        <?php if(!empty($l['tags'])): ?>
+                            <?php foreach(explode(',', $l['tags']) as $tag): ?>
+                                <span class="badge badge-tag">#<?= htmlspecialchars(trim($tag)) ?></span>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </td>
+                <td style="max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary);">
+                    <?= htmlspecialchars($l['destination_url']) ?>
+                </td>
+                <td class="font-mono"><?= number_format((int)$l['clicks']) ?></td>
+                <td>
+                    <span class="badge <?= $isExpired ? 'badge-expired' : ($l['status'] === 'active' ? 'badge-active' : 'badge-disabled') ?>">
+                        <?= $isExpired ? 'EXPIRED' : htmlspecialchars($l['status']) ?>
+                    </span>
+                </td>
+                <td style="font-size: 12px; color: var(--text-muted);">
+                    <?= !empty($l['expires_at']) ? date('M j, Y H:i', strtotime($l['expires_at'])) : 'Never' ?>
+                </td>
+                <td style="text-align: right;">
+                    <div style="display: inline-flex; gap: 6px;">
+                        <a href="<?= $baseURL ?>/qr?id=<?= $l['id'] ?>" target="_blank" class="btn btn-secondary btn-sm">QR</a>
+                        <button onclick="copyToClipboard('<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $baseURL . '/' . $l['short_code'] ?>')" class="btn btn-secondary btn-sm">Copy</button>
+                        <button onclick='openEditModal(<?= json_encode($l) ?>)' class="btn btn-secondary btn-sm">Edit</button>
+                        <form method="POST" action="<?= $baseURL ?>/links/toggle" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="link_id" value="<?= $l['id'] ?>">
+                            <button type="submit" class="btn btn-secondary btn-sm"><?= $l['status'] === 'active' ? 'Disable' : 'Enable' ?></button>
+                        </form>
+                        <form method="POST" action="<?= $baseURL ?>/links/delete" style="display:inline;" onsubmit="return confirm('Delete this link permanently?')">
+                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                            <input type="hidden" name="link_id" value="<?= $l['id'] ?>">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal: Create Link -->
+<div id="createModal" class="modal-backdrop">
+    <div class="modal-card">
+        <h3 style="font-size: 16px; margin-bottom: 16px;">Create a new link</h3>
+        <form method="POST" action="<?= $baseURL ?>/links/create">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            
+            <div class="form-group">
+                <label class="form-label">Destination URL</label>
+                <input type="url" name="url" placeholder="https://example.com/long-page" required class="form-input">
             </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <a id="qrDownload" href="#" download="linkforge-qr.svg" class="btn-primary" style="text-decoration:none;">Download SVG</a>
-                <button type="button" onclick="document.getElementById('qrModal').style.display='none'" style="padding:10px; background:transparent; border:1px solid #282C34; color:#fff; border-radius:8px; cursor:pointer;">Close</button>
+            <div class="form-group">
+                <label class="form-label">Title (optional)</label>
+                <input type="text" name="title" placeholder="Campaign or Resource title" class="form-input">
             </div>
-        </div>
+            <div class="form-group">
+                <label class="form-label">Custom Slug (optional)</label>
+                <input type="text" name="slug" placeholder="e.g. launch" class="form-input font-mono">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password Protection (optional)</label>
+                <input type="password" name="password" placeholder="Leave blank for public access" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tags (comma-separated)</label>
+                <input type="text" name="tags" placeholder="marketing, announcement" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Expiration (optional)</label>
+                <input type="datetime-local" name="expires_at" class="form-input">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                <button type="button" onclick="closeModal('createModal')" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create link</button>
+            </div>
+        </form>
     </div>
+</div>
 
-    <script>
-        function copyLink(url) {
-            navigator.clipboard.writeText(url).then(() => alert('Copied: ' + url));
-        }
+<!-- Modal: Edit Link -->
+<div id="editModal" class="modal-backdrop">
+    <div class="modal-card">
+        <h3 style="font-size: 16px; margin-bottom: 16px;">Edit Link</h3>
+        <form method="POST" action="<?= $baseURL ?>/links/update">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            <input type="hidden" name="link_id" id="editLinkId">
+            
+            <div class="form-group">
+                <label class="form-label">Destination URL</label>
+                <input type="url" name="url" id="editUrl" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Title</label>
+                <input type="text" name="title" id="editTitle" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">New Password (leave empty to keep current)</label>
+                <input type="password" name="password" placeholder="New password" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tags (comma-separated)</label>
+                <input type="text" name="tags" id="editTags" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Expiration</label>
+                <input type="datetime-local" name="expires_at" id="editExpiresAt" class="form-input">
+            </div>
 
-        function showNativeQR(url, slug) {
-            document.getElementById('qrTitle').innerText = slug;
-            const qrSrc = '<?= $baseURL ?>/qr?data=' + encodeURIComponent(url);
-            document.getElementById('qrImage').src = qrSrc;
-            document.getElementById('qrDownload').href = qrSrc;
-            document.getElementById('qrModal').style.display = 'flex';
-        }
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                <button type="button" onclick="closeModal('editModal')" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save changes</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-        function openEditModal(link) {
-            document.getElementById('editLinkId').value = link.id;
-            document.getElementById('editTitle').value = link.title || '';
-            document.getElementById('editTags').value = link.tags || '';
-            document.getElementById('editUrl').value = link.destination_url;
-            if (link.expires_at) {
-                document.getElementById('editExpiresAt').value = link.expires_at.replace(' ', 'T').substring(0, 16);
-            } else {
-                document.getElementById('editExpiresAt').value = '';
-            }
-            document.getElementById('editModal').style.display = 'flex';
-        }
+<script>
+function openEditModal(link) {
+    document.getElementById('editLinkId').value = link.id;
+    document.getElementById('editUrl').value = link.destination_url;
+    document.getElementById('editTitle').value = link.title || '';
+    document.getElementById('editTags').value = link.tags || '';
+    document.getElementById('editExpiresAt').value = link.expires_at ? link.expires_at.replace(' ', 'T').substring(0, 16) : '';
+    openModal('editModal');
+}
+</script>
 
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            document.querySelectorAll('#linksTable tbody tr').forEach(row => {
-                row.style.display = row.innerText.toLowerCase().includes(term) ? '' : 'none';
-            });
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
-                e.preventDefault();
-                searchInput.focus();
-            }
-        });
-    </script>
-</body>
-</html>
+<?php
+$slot = ob_get_clean();
+$pageTitle = "Links - LinkForge";
+require BASE_PATH . '/resources/views/layouts/app.php';

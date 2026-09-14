@@ -7,7 +7,8 @@ class RedirectController {
     public function handle($slug) {
         $pdo = Database::getInstance();
         
-        $stmt = $pdo->prepare("SELECT id, destination_url, status, expires_at FROM links WHERE short_code = ? LIMIT 1");
+        // FIXED: Single clean SELECT including pass_hash (removed the duplicate overwrite query)
+        $stmt = $pdo->prepare("SELECT id, destination_url, status, expires_at, pass_hash FROM links WHERE short_code = ? LIMIT 1");
         $stmt->execute([$slug]);
         $link = $stmt->fetch();
 
@@ -30,7 +31,26 @@ class RedirectController {
             die("<div style='font-family:sans-serif;text-align:center;padding:50px;'><h2>Link Disabled</h2><p>This link has been temporarily disabled by its owner.</p></div>");
         }
 
-        // 3. Increment Clicks & Collect Privacy Analytics
+        // 3. Password Verification Gate
+        if (!empty($link['pass_hash'])) {
+            $sessionKey = 'unlocked_link_' . $link['id'];
+            if (empty($_SESSION[$sessionKey])) {
+                if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['link_password'])) {
+                    if (password_verify($_POST['link_password'], $link['pass_hash'])) {
+                        $_SESSION[$sessionKey] = true;
+                    } else {
+                        $error = "Incorrect password.";
+                        require BASE_PATH . '/resources/views/errors/password.php';
+                        exit;
+                    }
+                } else {
+                    require BASE_PATH . '/resources/views/errors/password.php';
+                    exit;
+                }
+            }
+        }
+
+        // 4. Increment Clicks & Collect Privacy Analytics
         $update = $pdo->prepare("UPDATE links SET clicks = clicks + 1 WHERE id = ?");
         $update->execute([$link['id']]);
 
@@ -57,7 +77,7 @@ class RedirectController {
         $log = $pdo->prepare("INSERT INTO click_logs (link_id, visitor_hash, referrer, browser, os, device_type) VALUES (?, ?, ?, ?, ?, ?)");
         $log->execute([$link['id'], $visitor_hash, $referrer, $browser, $os, $device]);
 
-        // 4. Clean 302 Redirect
+        // 5. Clean 302 Redirect
         header("Location: " . $link['destination_url'], true, 302);
         exit;
     }

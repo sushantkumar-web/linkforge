@@ -1,0 +1,2 @@
+ALTER TABLE links 
+ADD COLUMN IF NOT EXISTS pass_hash VARCHAR(255) NULL AFTER expires_at;

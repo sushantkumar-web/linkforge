@@ -21,6 +21,7 @@ class LinkController {
         $url = filter_var($_POST['url'], FILTER_SANITIZE_URL);
         $custom_slug = trim($_POST['slug'] ?? '');
         $expires_at = !empty($_POST['expires_at']) ? $_POST['expires_at'] : null;
+        $pass_hash = !empty($_POST['password']) ? password_hash($_POST['password'], PASSWORD_DEFAULT) : null;
 
         // UTM Processing
         $utm_source = trim($_POST['utm_source'] ?? '');
@@ -57,9 +58,8 @@ class LinkController {
         $ip = gethostbyname($host);
         if (
             filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false &&
-            $host !== 'thesushant.in' // Whitelist your own production public domains if testing locally
+            $host !== 'thesushant.in'
         ) {
-            // Rejects 127.0.0.1, 10.x.x.x, 192.168.x.x, 0.0.0.0, etc.
             die("Error: Shortening internal or private network addresses is forbidden.");
         }
 
@@ -67,10 +67,12 @@ class LinkController {
 
         $pdo = Database::getInstance();
         try {
-            $stmt = $pdo->prepare("INSERT INTO links (user_id, title, destination_url, short_code, expires_at) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['user_id'], $title ?: null, $url, $slug, $expires_at]);
+            // FIXED: Included pass_hash in columns and values list
+            $stmt = $pdo->prepare("INSERT INTO links (user_id, title, destination_url, short_code, expires_at, pass_hash) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['user_id'], $title ?: null, $url, $slug, $expires_at, $pass_hash]);
             $link_id = $pdo->lastInsertId();
-$this->syncTags($pdo, $link_id, $_SESSION['user_id'], $_POST['tags'] ?? '');
+            
+            $this->syncTags($pdo, $link_id, $_SESSION['user_id'], $_POST['tags'] ?? '');
 
             $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
             header("Location: {$baseURL}/");
@@ -100,20 +102,32 @@ $this->syncTags($pdo, $link_id, $_SESSION['user_id'], $_POST['tags'] ?? '');
         $ip = gethostbyname($host);
         if (
             filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false &&
-            $host !== 'thesushant.in' // Whitelist your own production public domains if testing locally
+            $host !== 'thesushant.in'
         ) {
-            // Rejects 127.0.0.1, 10.x.x.x, 192.168.x.x, 0.0.0.0, etc.
             die("Error: Shortening internal or private network addresses is forbidden.");
         }
 
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("UPDATE links SET title = ?, destination_url = ?, expires_at = ? WHERE id = ? AND user_id = ?");
-        $this->syncTags($pdo, $id, $_SESSION['user_id'], $_POST['tags'] ?? '');
-        $stmt->execute([$title ?: null, $url, $expires_at, $id, $_SESSION['user_id']]);
 
-        $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
-        header("Location: {$baseURL}/");
-        exit;
+        // FIXED: Clean try/catch block without syntax errors
+        try {
+            if (!empty($_POST['password'])) {
+                $pass_hash = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE links SET title = ?, destination_url = ?, expires_at = ?, pass_hash = ? WHERE id = ? AND user_id = ?");
+                $stmt->execute([$title ?: null, $url, $expires_at, $pass_hash, $id, $_SESSION['user_id']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE links SET title = ?, destination_url = ?, expires_at = ? WHERE id = ? AND user_id = ?");
+                $stmt->execute([$title ?: null, $url, $expires_at, $id, $_SESSION['user_id']]);
+            }
+
+            $this->syncTags($pdo, $id, $_SESSION['user_id'], $_POST['tags'] ?? '');
+
+            $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
+            header("Location: {$baseURL}/");
+            exit;
+        } catch (PDOException $e) {
+            die("Database error updating link: " . htmlspecialchars($e->getMessage()));
+        }
     }
 
     public function toggle() {
@@ -133,7 +147,6 @@ $this->syncTags($pdo, $link_id, $_SESSION['user_id'], $_POST['tags'] ?? '');
         $id = $_POST['link_id'] ?? 0;
         $pdo = Database::getInstance();
 
-        // Delete associated analytics logs first
         $pdo->prepare("DELETE FROM click_logs WHERE link_id = ?")->execute([$id]);
         $stmt = $pdo->prepare("DELETE FROM links WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, $_SESSION['user_id']]);
@@ -142,24 +155,24 @@ $this->syncTags($pdo, $link_id, $_SESSION['user_id'], $_POST['tags'] ?? '');
         header("Location: {$baseURL}/");
         exit;
     }
+
     private function syncTags($pdo, $link_id, $user_id, string $tagString) {
-    // Clear existing link associations
-    $pdo->prepare("DELETE FROM link_tags WHERE link_id = ?")->execute([$link_id]);
-    
-    $tags = array_filter(array_map('trim', explode(',', strtolower($tagString))));
-    if (empty($tags)) return;
+        $pdo->prepare("DELETE FROM link_tags WHERE link_id = ?")->execute([$link_id]);
+        
+        $tags = array_filter(array_map('trim', explode(',', strtolower($tagString))));
+        if (empty($tags)) return;
 
-    $tagStmt = $pdo->prepare("INSERT IGNORE INTO tags (user_id, name) VALUES (?, ?)");
-    $findStmt = $pdo->prepare("SELECT id FROM tags WHERE user_id = ? AND name = ? LIMIT 1");
-    $linkStmt = $pdo->prepare("INSERT IGNORE INTO link_tags (link_id, tag_id) VALUES (?, ?)");
+        $tagStmt = $pdo->prepare("INSERT IGNORE INTO tags (user_id, name) VALUES (?, ?)");
+        $findStmt = $pdo->prepare("SELECT id FROM tags WHERE user_id = ? AND name = ? LIMIT 1");
+        $linkStmt = $pdo->prepare("INSERT IGNORE INTO link_tags (link_id, tag_id) VALUES (?, ?)");
 
-    foreach ($tags as $tag) {
-        $tagStmt->execute([$user_id, $tag]);
-        $findStmt->execute([$user_id, $tag]);
-        $tagId = $findStmt->fetchColumn();
-        if ($tagId) {
-            $linkStmt->execute([$link_id, $tagId]);
+        foreach ($tags as $tag) {
+            $tagStmt->execute([$user_id, $tag]);
+            $findStmt->execute([$user_id, $tag]);
+            $tagId = $findStmt->fetchColumn();
+            if ($tagId) {
+                $linkStmt->execute([$link_id, $tagId]);
+            }
         }
     }
-}
 }

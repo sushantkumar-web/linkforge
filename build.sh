@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="1.0.0"
+VERSION="1.0.1"
 ZIP_NAME="linkforge-v${VERSION}.zip"
 
 echo "🔨 Building ${ZIP_NAME}..."

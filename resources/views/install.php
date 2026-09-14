@@ -1,41 +1,109 @@
+<?php
+$baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Install LinkForge</title>
+    <title>Install - LinkForge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="<?= $baseURL ?>/assets/css/app.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background-color: #0F1115; color: #F5F5F5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background-color: #16191F; border: 1px solid #282C34; border-radius: 12px; width: 100%; max-width: 440px; padding: 32px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
-        h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; text-align: center; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 13px; color: #9CA3AF; margin-bottom: 6px; }
-        input { width: 100%; padding: 10px 12px; background-color: #0F1115; border: 1px solid #282C34; border-radius: 8px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
-        input:focus { border-color: #5B5CE2; }
-        button { width: 100%; background-color: #5B5CE2; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 500; font-size: 14px; cursor: pointer; margin-top: 16px; transition: opacity 0.2s; }
-        button:hover { opacity: 0.9; }
-        .error { background: rgba(239, 68, 68, 0.1); color: #EF4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; border: 1px solid rgba(239, 68, 68, 0.2); }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 32px 16px;
+        }
+        .install-card {
+            width: 100%;
+            max-width: 460px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 36px var(--space-6);
+        }
+        .step-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 24px 0 20px;
+            position: relative;
+        }
+        .step-badge {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-surface);
+            padding: 0 10px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to LinkForge</h1>
-        <?php if(isset($error)): ?>
-            <div class="error"><?= htmlspecialchars($error) ?></div>
+    <div class="install-card">
+        <div style="text-align: center; margin-bottom: 28px;">
+            <div style="font-size: 20px; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 4px;">
+                <span style="color: var(--accent);"><i class="fa-solid fa-cubes"></i></span> LINKFORGE
+            </div>
+            <div style="font-size: 13px; color: var(--text-secondary);">Installation and Environment Setup</div>
+        </div>
+
+        <?php if(!empty($error)): ?>
+            <div style="background: var(--status-expired-bg); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--status-expired-text); padding: 10px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 20px; text-align: center;">
+                <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px;"></i><?= htmlspecialchars($error) ?>
+            </div>
         <?php endif; ?>
-        <form method="POST" action="">
-            <div class="form-group"><label>Database Host</label><input type="text" name="db_host" value="localhost" required></div>
-            <div class="form-group"><label>Database Name</label><input type="text" name="db_name" required></div>
-            <div class="form-group"><label>Database User</label><input type="text" name="db_user" required></div>
-            <div class="form-group"><label>Database Password</label><input type="password" name="db_pass"></div>
-            <div style="height: 1px; background: #282C34; margin: 24px 0;"></div>
-            <div class="form-group"><label>Admin Email</label><input type="email" name="admin_email" required></div>
-            <div class="form-group"><label>Admin Password</label><input type="password" name="admin_pass" required></div>
-            <button type="submit">Install LinkForge</button>
+
+        <form method="POST" action="<?= $baseURL ?>/install">
+            <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 12px;">
+                <i class="fa-solid fa-database" style="margin-right: 6px; color: var(--accent);"></i> Database Configuration
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Database Host</label>
+                <input type="text" name="db_host" value="localhost" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Database Name</label>
+                <input type="text" name="db_name" required placeholder="linkforge_db" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Database User</label>
+                <input type="text" name="db_user" required placeholder="root" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Database Password</label>
+                <input type="password" name="db_pass" placeholder="••••••••" class="form-input">
+            </div>
+
+            <div class="step-divider">
+                <span class="step-badge">Administrator</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Admin Email</label>
+                <input type="email" name="admin_email" required placeholder="admin@domain.com" class="form-input">
+            </div>
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label class="form-label">Admin Password</label>
+                <input type="password" name="admin_pass" required placeholder="Strong password" class="form-input">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 11px;">
+                Complete Installation <i class="fa-solid fa-circle-check" style="margin-left: 6px;"></i>
+            </button>
         </form>
+
+        <div style="text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-muted);">
+            Self-hosted with LinkForge
+        </div>
     </div>
 </body>
 </html>

@@ -9,7 +9,7 @@ class SettingsController {
             exit;
         }
 
-        $current_version = '1.0.0';
+        $current_version = '1.0.1';
         $latest_version = $current_version;
         $download_url = '';
         $release_notes = 'No updates available.';
