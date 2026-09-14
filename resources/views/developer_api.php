@@ -33,6 +33,7 @@
         <div class="header-bar">
             <h1>API Keys</h1>
             <form method="POST" action="<?= str_replace('/index.php', '', $_SERVER['PHP_SELF']) ?>/api-keys/create" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 <button type="submit" class="btn-primary">+ Create key</button>
             </form>
         </div>

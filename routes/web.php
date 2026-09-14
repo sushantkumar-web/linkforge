@@ -7,12 +7,13 @@ $routes = [
         '/install' => 'App\Controllers\InstallController@index',
         '/login' => 'App\Controllers\AuthController@login',
         '/analytics' => 'App\Controllers\AnalyticsController@view',
-        '/analytics/export' => 'App\Controllers\AnalyticsController@export', // New!
+        '/analytics/export' => 'App\Controllers\AnalyticsController@export',
         '/api-keys' => 'App\Controllers\DeveloperController@index',
         '/settings' => 'App\Controllers\SettingsController@index',
         '/qr' => 'App\Controllers\QrController@render',
     ],
     'POST' => [
+        '/install' => 'App\Controllers\InstallController@setup',
         '/login' => 'App\Controllers\AuthController@authenticate',
         '/links/create' => 'App\Controllers\LinkController@store',
         '/links/update' => 'App\Controllers\LinkController@update',
@@ -26,10 +27,11 @@ $routes = [
 
 $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
 
-// 1. Dedicated REST API Dispatcher (/api/v1/...)
-if (strpos($uri, '/api/v1/') === 0) {
+// 1. Dedicated REST API Dispatcher (Catches /api/v1/ anywhere in the URI)
+if (strpos($uri, '/api/v1/') !== false) {
+    $apiUri = substr($uri, strpos($uri, '/api/v1/'));
     $api = new \App\Controllers\ApiController();
-    $api->dispatch($method, $uri);
+    $api->dispatch($method, $apiUri);
     exit;
 }
 
@@ -41,8 +43,8 @@ if (!array_key_exists($uri, $routes['GET']) && $method === 'GET' && $uri !== '/'
     exit;
 }
 
-// 3. Web CSRF Protection Firewall (POST routes only)
-if ($method === 'POST') {
+// 3. Web CSRF Protection Firewall (POST routes only, strictly exempting API and install)
+if ($method === 'POST' && strpos($uri, '/api/') === false && $uri !== '/install') {
     $token = $_POST['csrf_token'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
         http_response_code(403);

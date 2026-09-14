@@ -31,6 +31,7 @@
         <?php endif; ?>
 
         <form method="POST" action="">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <div class="form-group">
                 <label>Email</label>
                 <input type="email" name="email" required autofocus>
