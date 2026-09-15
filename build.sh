@@ -103,7 +103,7 @@ SIZE=$(du -h "$ARCHIVE_NAME" | cut -f1)
 echo "✔ Build complete: ${ARCHIVE_NAME} (${SIZE})"
 
 # --- Final guard: verify no secrets in the zip ---
-if unzip -l "$ARCHIVE_NAME" | grep -qE 'config/config\.php|storage/logs/mail/.*\.html'; then
+if unzip -l "$ARCHIVE_NAME" | awk '{print $4}' | grep -qE '^config/config\.php$|^storage/logs/mail/.*\.html$'; then
     echo "✕ WARNING: The archive appears to contain sensitive files. Do NOT publish."
     exit 1
 fi
