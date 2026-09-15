@@ -1,5 +1,54 @@
-config/config.php
+# --- OS noise ---
 .DS_Store
-storage/*.zip
+Thumbs.db
+desktop.ini
+
+# --- IDE ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Composer / Node (not used, but safe) ---
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+
+# --- Config with secrets ---
+config/config.php
+.env
+.env.local
+.env.*.local
+
+# --- Runtime storage (keep dirs, ignore contents) ---
+storage/cache/*
+storage/cache/links/*
+!storage/cache/.gitkeep
+!storage/cache/links/.gitkeep
+
 storage/logs/*
-.maintenance*.zip
+storage/logs/mail/*
+!storage/logs/.gitkeep
+!storage/logs/mail/.gitkeep
+
+storage/update_extracted/
+storage/backups/
+
+# --- phpqrcode runtime cache ---
+app/Libraries/phpqrcode/cache/*
+app/Libraries/phpqrcode/temp/*
+!app/Libraries/phpqrcode/cache/.gitkeep
+!app/Libraries/phpqrcode/temp/.gitkeep
+
+# --- Build artifacts ---
+build_tmp/
+*.zip
+*.tar.gz
+*.tar
+linkforge-*.zip
+
+# --- PHP debug / coverage ---
+.phpunit.result.cache
+.php-cs-fixer.cache
+*.log

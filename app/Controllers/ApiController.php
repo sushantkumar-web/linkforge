@@ -6,6 +6,8 @@ use PDO;
 
 class ApiController {
     private $user_id;
+    private $api_key_id;
+    private $scopes = [];
 
     public function __construct() {
         header('Content-Type: application/json');
@@ -16,32 +18,63 @@ class ApiController {
      */
     private function authenticate() {
         $headers = getallheaders();
-        $auth = $headers['Authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        $authHeader = $headers['Authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
 
-        if (!preg_match('/Bearer\s(\S+)/', $auth, $matches)) {
+        if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
             $this->response(401, ['error' => 'Missing or invalid token. Format: Authorization: Bearer <your_key>']);
         }
 
         $token = $matches[1];
+        $hashedToken = hash('sha256', trim($token));
         $pdo = Database::getInstance();
 
-        $stmt = $pdo->prepare("SELECT user_id FROM api_keys WHERE api_key = ? LIMIT 1");
-        $stmt->execute([$token]);
-        $key = $stmt->fetch();
+        // 1. Fetch the key details based on the hashed token
+        $stmt = $pdo->prepare("SELECT id, user_id, scopes FROM api_keys WHERE hashed_key = ? AND status = 'active' LIMIT 1");
+        $stmt->execute([$hashedToken]);
+        $apiKey = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$key) {
-            $this->response(401, ['error' => 'Invalid API key']);
+        if (!$apiKey) {
+            $this->response(401, ['error' => 'Unauthorized: Invalid or revoked API key']);
         }
 
-        // Touch last_used_at
-        $pdo->prepare("UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE api_key = ?")->execute([$token]);
-        $this->user_id = (int)$key['user_id'];
+        // 2. Set class properties for later use
+        $this->user_id = (int)$apiKey['user_id'];
+        $this->api_key_id = (int)$apiKey['id'];
+        $this->scopes = array_map('trim', explode(',', $apiKey['scopes']));
+
+        // 3. Update last_used_at and total_requests
+        $updateStmt = $pdo->prepare("UPDATE api_keys SET last_used_at = NOW(), total_requests = total_requests + 1 WHERE id = ?");
+        $updateStmt->execute([$this->api_key_id]);
     }
 
     /**
-     * Internal JSON response helper.
+     * Checks if the current API key has the required scope.
+     */
+    private function checkScope(string $requiredScope) {
+        if (!in_array($requiredScope, $this->scopes)) {
+            $this->response(403, ['error' => "Forbidden: Your API key lacks the '$requiredScope' scope."]);
+        }
+    }
+
+    /**
+     * Internal JSON response helper with telemetry logging.
      */
     private function response(int $code, array $payload) {
+        // Log the request to the telemetry table if we have a valid API key ID
+        if ($this->api_key_id) {
+            try {
+                $pdo = Database::getInstance();
+                $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+                $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
+                $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
+                
+                $logStmt = $pdo->prepare("INSERT INTO api_request_logs (api_key_id, endpoint, http_method, status_code, ip_address) VALUES (?, ?, ?, ?, ?)");
+                $logStmt->execute([$this->api_key_id, $uri, $method, $code, $ip]);
+            } catch (\Exception $e) {
+                // Fail silently for logging errors to not break the API response
+            }
+        }
+
         http_response_code($code);
         echo json_encode($payload);
         exit;
@@ -51,6 +84,7 @@ class ApiController {
      * Dispatcher for incoming /api/v1/ requests.
      */
     public function dispatch(string $method, string $uri) {
+        // Authenticate before anything else
         $this->authenticate();
 
         $path = trim(substr($uri, strlen('/api/v1/')), '/');
@@ -60,21 +94,33 @@ class ApiController {
         if ($parts[0] === 'links') {
             // GET /api/v1/links
             if (count($parts) === 1 && $method === 'GET') {
+                $this->checkScope('links:read');
                 $this->index();
             }
             // POST /api/v1/links
             elseif (count($parts) === 1 && $method === 'POST') {
+                $this->checkScope('links:write');
                 $this->store();
             }
             // /api/v1/links/{id}
             elseif (count($parts) === 2 && is_numeric($parts[1])) {
                 $id = (int)$parts[1];
-                if ($method === 'GET') $this->show($id);
-                elseif ($method === 'PATCH') $this->update($id);
-                elseif ($method === 'DELETE') $this->destroy($id);
+                if ($method === 'GET') {
+                    $this->checkScope('links:read');
+                    $this->show($id);
+                }
+                elseif ($method === 'PATCH') {
+                    $this->checkScope('links:write');
+                    $this->update($id);
+                }
+                elseif ($method === 'DELETE') {
+                    $this->checkScope('links:write');
+                    $this->destroy($id);
+                }
             }
             // GET /api/v1/links/{id}/analytics
             elseif (count($parts) === 3 && is_numeric($parts[1]) && $parts[2] === 'analytics' && $method === 'GET') {
+                $this->checkScope('links:read');
                 $this->analytics((int)$parts[1]);
             }
         }
@@ -154,7 +200,11 @@ class ApiController {
                 ]
             ]);
         } catch (\PDOException $e) {
-            $this->response(409, ['error' => 'That short code is already taken']);
+            // Check for duplicate entry error code 23000
+            if ($e->getCode() == 23000) {
+                $this->response(409, ['error' => 'That short code is already taken']);
+            }
+            $this->response(500, ['error' => 'Database error: ' . $e->getMessage()]);
         }
     }
 
@@ -213,6 +263,7 @@ class ApiController {
      */
     public function destroy(int $id) {
         $pdo = Database::getInstance();
+        // First delete associated analytics to maintain referential integrity
         $pdo->prepare("DELETE FROM click_logs WHERE link_id = ?")->execute([$id]);
         $stmt = $pdo->prepare("DELETE FROM links WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, $this->user_id]);

@@ -56,6 +56,40 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
     border-color: var(--accent, #5B5CE2);
 }
 </style>
+<?php if ($err = flash('error')): ?>
+<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; color: #EF4444; font-size: 13px; font-weight: 500;">
+    <i class="fa-solid fa-circle-exclamation" style="margin-right: 8px;"></i>
+    <?= htmlspecialchars($err) ?>
+</div>
+<?php endif; ?>
+
+<?php if ($taken = flash('slug_taken')): ?>
+<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 16px 18px; margin-bottom: 20px;">
+    <div style="color: #EF4444; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+        <i class="fa-solid fa-circle-exclamation" style="margin-right: 8px;"></i>
+        The slug <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;"><?= htmlspecialchars($taken['attempted']) ?></code> is already taken globally.
+    </div>
+    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+        Short codes are the public URL — they must be globally unique across all users. Try one of these instead:
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <?php foreach ($taken['suggestions'] as $s): ?>
+            <button type="button" onclick="useSlug('<?= htmlspecialchars($s) ?>')" class="preset-btn" style="font-family: 'JetBrains Mono', monospace;">
+                <?= htmlspecialchars($s) ?>
+            </button>
+        <?php endforeach; ?>
+    </div>
+</div>
+<script>
+function useSlug(slug) {
+    document.querySelector('input[name="slug"]').value = slug;
+    openModal('createModal');
+    // Focus on the URL field if empty
+    const urlInput = document.querySelector('input[name="url"]');
+    if (urlInput && !urlInput.value) urlInput.focus();
+}
+</script>
+<?php endif; ?>
 
 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
     <div>
@@ -155,16 +189,17 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
                         <button type="button" onclick="copyToClipboard('<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $baseURL . '/' . $l['short_code'] ?>')" class="btn btn-secondary btn-sm">Copy</button>
                         
                         <button type="button" 
-                                class="btn btn-secondary btn-sm"
-                                data-id="<?= $l['id'] ?>"
-                                data-url="<?= htmlspecialchars($l['destination_url'], ENT_QUOTES, 'UTF-8') ?>"
-                                data-title="<?= htmlspecialchars($l['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                                data-tags="<?= htmlspecialchars($l['tags'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                                data-expires="<?= htmlspecialchars($l['expires_at'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                                data-protected="<?= !empty($l['pass_hash']) ? '1' : '0' ?>"
-                                onclick="openEditModal(this)">
-                            Edit
-                        </button>
+        class="btn btn-secondary btn-sm"
+        data-id="<?= $l['id'] ?>"
+        data-url="<?= htmlspecialchars($l['destination_url'], ENT_QUOTES, 'UTF-8') ?>"
+        data-fallback="<?= htmlspecialchars($l['fallback_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+        data-title="<?= htmlspecialchars($l['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+        data-tags="<?= htmlspecialchars($l['tags'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+        data-expires="<?= htmlspecialchars($l['expires_at'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+        data-protected="<?= !empty($l['pass_hash']) ? '1' : '0' ?>"
+        onclick="openEditModal(this)">
+    Edit
+</button>
 
                         <form method="POST" action="<?= $baseURL ?>/links/toggle" style="display:inline;">
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -224,6 +259,13 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
                     <button type="button" class="preset-btn" onclick="clearPreset('create')" style="color: var(--status-expired-text);">Clear</button>
                 </div>
             </div>
+            <div class="form-group">
+    <label class="form-label">Expiration Fallback URL (optional)</label>
+    <input type="url" name="fallback_url" placeholder="https://example.com/campaign-ended" class="form-input">
+    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+        Where visitors will be sent if the link expires. If left empty, an HTTP 410 page is shown.
+    </span>
+</div>
 
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
                 <button type="button" onclick="closeModal('createModal')" class="btn btn-secondary">Cancel</button>
@@ -276,6 +318,13 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
                     <button type="button" class="preset-btn" onclick="clearPreset('edit')" style="color: var(--status-expired-text);">Clear / Never</button>
                 </div>
             </div>
+            <div class="form-group">
+    <label class="form-label">Expiration Fallback URL</label>
+    <input type="url" name="fallback_url" id="editFallbackUrl" placeholder="https://example.com/campaign-ended" class="form-input">
+    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+        Where visitors will be sent if the link expires.
+    </span>
+</div>
 
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
                 <button type="button" onclick="closeModal('editModal')" class="btn btn-secondary">Cancel</button>
@@ -344,6 +393,11 @@ window.openEditModal = function(button) {
         var tags = button.getAttribute('data-tags') || '';
         var expires = button.getAttribute('data-expires') || '';
         var isProtected = button.getAttribute('data-protected') === '1';
+        var fallback = button.getAttribute('data-fallback') || '';
+var fallbackInput = document.getElementById('editFallbackUrl');
+if (fallbackInput) {
+    fallbackInput.value = fallback;
+}
 
         document.getElementById('editLinkId').value = id;
         document.getElementById('editUrl').value = url;

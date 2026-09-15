@@ -1,6 +1,17 @@
 <?php
 // routes/web.php
 
+if (!function_exists('flash')) {
+    function flash($key, $value = null) {
+        if ($value === null) {
+            $val = $_SESSION['_flash'][$key] ?? null;
+            unset($_SESSION['_flash'][$key]);
+            return $val;
+        }
+        $_SESSION['_flash'][$key] = $value;
+    }
+}
+
 $routes = [
     'GET' => [
         '/' => 'App\Controllers\DashboardController@index',
@@ -8,9 +19,18 @@ $routes = [
         '/login' => 'App\Controllers\AuthController@login',
         '/analytics' => 'App\Controllers\AnalyticsController@view',
         '/analytics/export' => 'App\Controllers\AnalyticsController@export',
-        '/api-keys' => 'App\Controllers\DeveloperController@index',
+        '/api-keys' => 'App\Controllers\ApiKeyController@index', // Fixed to ApiKeyController
         '/settings' => 'App\Controllers\SettingsController@index',
         '/qr' => 'App\Controllers\QrController@render',
+        '/users' => 'App\Controllers\UsersController@index',
+        '/users/create' => 'App\Controllers\UsersController@create',
+        '/logout' => 'App\Controllers\AuthController@logout',
+        '/forgot-password' => 'App\Controllers\AuthController@showForgotForm',
+        '/reset-password'  => 'App\Controllers\AuthController@showResetForm',
+        '/search' => 'App\Controllers\SearchController@index',
+        '/search/quick' => 'App\Controllers\SearchController@quick',
+        '/tags' => 'App\Controllers\TagsController@index',
+        '/links' => 'App\Controllers\DashboardController@index',
     ],
     'POST' => [
         '/install' => 'App\Controllers\InstallController@setup',
@@ -19,15 +39,25 @@ $routes = [
         '/links/update' => 'App\Controllers\LinkController@update',
         '/links/toggle' => 'App\Controllers\LinkController@toggle',
         '/links/delete' => 'App\Controllers\LinkController@delete',
-        '/api-keys/create' => 'App\Controllers\DeveloperController@create',
-        '/api-keys/revoke' => 'App\Controllers\DeveloperController@revoke',
+        '/api-keys/generate' => 'App\Controllers\ApiKeyController@generate', 
+        '/api-keys/revoke' => 'App\Controllers\ApiKeyController@revoke',     
+        '/api-keys/delete' => 'App\Controllers\ApiKeyController@delete',    
         '/settings/update' => 'App\Controllers\UpdateController@runMigrations',
+        '/users/store' => 'App\Controllers\UsersController@store',
+        '/users/update' => 'App\Controllers\UsersController@update',
+        '/users/delete' => 'App\Controllers\UsersController@delete',
+        '/forgot-password' => 'App\Controllers\AuthController@forgotPassword',
+        '/reset-password'  => 'App\Controllers\AuthController@resetPassword',
+        '/settings/email' => 'App\Controllers\SettingsController@saveEmail',
+        '/settings/email/test' => 'App\Controllers\SettingsController@testEmail',
+        '/tags/delete' => 'App\Controllers\TagsController@delete',
+        '/links/bulk' => 'App\Controllers\LinkController@bulk',
     ]
 ];
 
 $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
 
-// 1. Dedicated REST API Dispatcher (Catches /api/v1/ anywhere in the URI)
+// 1. Dedicated REST API Dispatcher
 if (strpos($uri, '/api/v1/') !== false) {
     $apiUri = substr($uri, strpos($uri, '/api/v1/'));
     $api = new \App\Controllers\ApiController();
@@ -35,7 +65,7 @@ if (strpos($uri, '/api/v1/') !== false) {
     exit;
 }
 
-// 2. Short Link Redirect Engine (Handles both GET visits and POST password unlocks)
+// 2. Short Link Redirect Engine
 $isWebPostRoute = ($method === 'POST' && array_key_exists($uri, $routes['POST']));
 
 if (!array_key_exists($uri, $routes['GET']) && !$isWebPostRoute && $uri !== '/') {
@@ -45,7 +75,7 @@ if (!array_key_exists($uri, $routes['GET']) && !$isWebPostRoute && $uri !== '/')
     exit;
 }
 
-// 3. Web CSRF Protection Firewall (Protects dashboard POST routes only)
+// 3. Web CSRF Protection Firewall
 if ($method === 'POST' && strpos($uri, '/api/') === false && $uri !== '/install' && $isWebPostRoute) {
     $token = $_POST['csrf_token'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
@@ -59,7 +89,9 @@ if (isset($routes[$method][$uri])) {
     list($controller, $action) = explode('@', $routes[$method][$uri]);
     $instance = new $controller();
     $instance->$action();
+    exit; // CRITICAL: Stop execution after controller runs
 } else {
     http_response_code(404);
     require BASE_PATH . '/resources/views/errors/404.php';
+    exit; // CRITICAL: Stop execution after 404
 }

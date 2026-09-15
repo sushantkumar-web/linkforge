@@ -86,6 +86,9 @@ class UpdateController {
             // Copy files over production codebase
             $this->copyFiles($sourceFiles, BASE_PATH);
             $this->deleteDirectory($extractPath);
+            if (function_exists('opcache_reset')) {
+                @opcache_reset();
+            }
         } else {
             die("Error: Failed to open downloaded ZIP package.");
         }

@@ -29,7 +29,7 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
     <div class="login-card">
         <div style="text-align: center; margin-bottom: 28px;">
             <div style="font-size: 20px; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 4px;">
-                <span style="color: var(--accent);">⬡</span> LINKFORGE
+                LINKFORGE
             </div>
             <div style="font-size: 13px; color: var(--text-secondary);">Sign in to your account</div>
         </div>
@@ -52,6 +52,13 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
                 <label class="form-label">Password</label>
                 <input type="password" name="password" required class="form-input">
             </div>
+            <a href="<?= $baseURL ?>/forgot-password">Forgot password?</a>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); cursor: pointer;">
+        <input type="checkbox" name="remember_me" value="1">
+        Stay signed in for 30 days
+    </label>
+</div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 10px;">Sign in</button>
         </form>

@@ -1,5 +1,13 @@
 <?php
+date_default_timezone_set('Asia/Kolkata');
+// Report all PHP errors
+error_reporting(E_ALL);
+
+// Display errors on the screen
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
 define('LINKFORGE_START', microtime(true));
+define('APP_VERSION', '1.0.3');
 // 1. Hardened Session Settings (Cloudflare & Subpath Aware)
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
     || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')

@@ -12,7 +12,7 @@ class RedirectController {
 
         if (!$link) {
             $pdo = Database::getInstance();
-            $stmt = $pdo->prepare("SELECT id, destination_url, status, expires_at, pass_hash, short_code FROM links WHERE short_code = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT id, destination_url, fallback_url, status, expires_at, pass_hash, short_code FROM links WHERE short_code = ? LIMIT 1");
             $stmt->execute([$slug]);
             $link = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -25,14 +25,26 @@ class RedirectController {
             Cache::set($slug, $link);
         }
 
-        // 2. Expiration Gate (410 Gone)
-        if ($link['expires_at'] && strtotime($link['expires_at']) <= time()) {
+        // 2. Smart Expiration & Fallback Gate
+        if (!empty($link['expires_at']) && strtotime($link['expires_at']) <= time()) {
+            // Evict expired link from memory cache
+            Cache::forget($slug);
+
+            if (!empty($link['fallback_url'])) {
+                header("Location: " . $link['fallback_url'], true, 302);
+                exit;
+            }
+
             http_response_code(410);
-            require BASE_PATH . '/resources/views/errors/410.php';
+            if (file_exists(BASE_PATH . '/resources/views/errors/410.php')) {
+                require BASE_PATH . '/resources/views/errors/410.php';
+            } else {
+                echo "<!DOCTYPE html><html><head><title>Link Expired</title><style>body{background:#0F1115;color:#9CA3AF;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}.card{background:#16191F;border:1px solid #282C34;padding:32px;border-radius:8px;text-align:center;max-width:400px;}h1{color:#F5F5F5;font-size:20px;margin-bottom:8px;}</style></head><body><div class='card'><h1>Link Expired</h1><p>This link has reached its expiration date and is no longer active.</p></div></body></html>";
+            }
             exit;
         }
 
-        // 3. Disabled Check
+        // 3. Disabled Gate
         if ($link['status'] !== 'active') {
             http_response_code(403);
             die("<div style='font-family:sans-serif;text-align:center;padding:50px;'><h2>Link Disabled</h2><p>This link has been temporarily disabled by its owner.</p></div>");
@@ -57,7 +69,7 @@ class RedirectController {
             }
         }
 
-        // 5. Send Redirect Header First
+        // 5. Send Immediate 302 Redirect
         $destination = $link['destination_url'];
         $linkId = (int)$link['id'];
         $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
@@ -84,7 +96,7 @@ class RedirectController {
             flush();
         }
 
-        // 6. Background Analytics Logging
+        // 6. Non-Blocking Analytics Logging
         ignore_user_abort(true);
         try {
             $pdo = Database::getInstance();
