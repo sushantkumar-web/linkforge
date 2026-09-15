@@ -2,7 +2,6 @@
 namespace App\Controllers;
 
 use App\Core\Database;
-use PDO;
 use ZipArchive;
 use Exception;
 
@@ -15,7 +14,7 @@ class UpdateController {
         $repo = 'sushantkumar-web/linkforge';
         $apiUrl = "https://api.github.com/repos/{$repo}/releases/latest";
 
-        // 1. Fetch Latest Release Details from GitHub API
+        // 1. Fetch latest release
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $apiUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -28,7 +27,6 @@ class UpdateController {
         $release = json_decode($response, true);
         $downloadUrl = null;
 
-        // Look for the clean ZIP asset uploaded via build.sh
         if (!empty($release['assets'])) {
             foreach ($release['assets'] as $asset) {
                 if (str_ends_with($asset['name'], '.zip')) {
@@ -37,22 +35,18 @@ class UpdateController {
                 }
             }
         }
-
-        // Fallback to source zipball if no release asset was uploaded
         if (!$downloadUrl && !empty($release['zipball_url'])) {
             $downloadUrl = $release['zipball_url'];
         }
-
         if (!$downloadUrl) {
             die("Error: No downloadable release package found on GitHub.");
         }
 
-        // 2. Download ZIP Package
+        // 2. Download ZIP
         $storageDir = BASE_PATH . '/storage';
         if (!is_dir($storageDir)) {
             mkdir($storageDir, 0755, true);
         }
-
         $tempZip = $storageDir . '/latest_update.zip';
         $extractPath = $storageDir . '/update_extracted';
 
@@ -60,43 +54,49 @@ class UpdateController {
         $ch = curl_init($downloadUrl);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
         curl_setopt($ch, CURLOPT_FILE, $fp);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Follow AWS/GitHub redirects
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_USERAGENT, 'LinkForge-Updater');
         curl_exec($ch);
         curl_close($ch);
         fclose($fp);
 
-        // 3. Unpack and Overwrite Code Files
+        // 3. Extract and copy
         $zip = new ZipArchive;
-        if ($zip->open($tempZip) === TRUE) {
-            // Wipe any previous extraction directory
-            $this->deleteDirectory($extractPath);
-            mkdir($extractPath, 0755, true);
-            $zip->extractTo($extractPath);
-            $zip->close();
-            unlink($tempZip);
-
-            // Determine if archive has a root wrapper folder (GitHub source zips do)
-            $sourceFiles = $extractPath;
-            $items = array_diff(scandir($extractPath), ['.', '..']);
-            if (count($items) === 1 && is_dir($extractPath . '/' . reset($items))) {
-                $sourceFiles = $extractPath . '/' . reset($items);
-            }
-
-            // Copy files over production codebase
-            $this->copyFiles($sourceFiles, BASE_PATH);
-            $this->deleteDirectory($extractPath);
-            if (function_exists('opcache_reset')) {
-                @opcache_reset();
-            }
-        } else {
+        if ($zip->open($tempZip) !== TRUE) {
             die("Error: Failed to open downloaded ZIP package.");
         }
 
-        // 4. Run Pending SQL Migrations
-        $this->executePendingMigrations();
+        $this->deleteDirectory($extractPath);
+        mkdir($extractPath, 0755, true);
+        $zip->extractTo($extractPath);
+        $zip->close();
+        unlink($tempZip);
 
-        // 5. Finished - Redirect back to settings with success
+        $sourceFiles = $extractPath;
+        $items = array_diff(scandir($extractPath), ['.', '..']);
+        if (count($items) === 1 && is_dir($extractPath . '/' . reset($items))) {
+            $sourceFiles = $extractPath . '/' . reset($items);
+        }
+
+        $this->copyFiles($sourceFiles, BASE_PATH);
+        $this->deleteDirectory($extractPath);
+
+        if (function_exists('opcache_reset')) {
+            @opcache_reset();
+        }
+
+        // 4. Run pending migrations via the shared runner
+        try {
+            $result = \App\Core\MigrationRunner::run();
+            if (!empty($result['applied'])) {
+                error_log('[LinkForge] Update applied migrations: ' . implode(', ', $result['applied']));
+            }
+        } catch (Exception $e) {
+            error_log('[LinkForge] Migration error: ' . $e->getMessage());
+            die("Migration failed: " . htmlspecialchars($e->getMessage()));
+        }
+
+        // 5. Redirect
         $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
         header("Location: {$baseURL}/settings?updated=1");
         exit;
@@ -108,11 +108,10 @@ class UpdateController {
 
         while (($file = readdir($dir)) !== false) {
             if ($file === '.' || $file === '..') continue;
-
             $srcPath = $src . '/' . $file;
             $dstPath = $dst . '/' . $file;
 
-            // NEVER overwrite config/config.php or .git directory
+            // NEVER overwrite user's config or .git
             if ($file === 'config.php' && basename($dst) === 'config') continue;
             if ($file === '.git') continue;
 
@@ -133,41 +132,5 @@ class UpdateController {
             is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
         }
         rmdir($dir);
-    }
-
-    private function executePendingMigrations() {
-        $pdo = Database::getInstance();
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS system_settings (
-                setting_key VARCHAR(50) PRIMARY KEY,
-                setting_value VARCHAR(255) NOT NULL
-            );
-        ");
-
-        $stmt = $pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = 'db_version' LIMIT 1");
-        $currentVersion = (int)($stmt->fetchColumn() ?: 0);
-
-        $migrationsDir = BASE_PATH . '/database/migrations';
-        if (!is_dir($migrationsDir)) return;
-
-        $files = glob($migrationsDir . '/*.sql');
-        sort($files);
-
-        foreach ($files as $file) {
-            $filename = basename($file);
-            if (preg_match('/^(\d+)_\w+\.sql$/', $filename, $matches)) {
-                $migrationVersion = (int)$matches[1];
-                if ($migrationVersion > $currentVersion) {
-                    $sql = file_get_contents($file);
-                    $pdo->exec($sql);
-                    $pdo->prepare("
-                        INSERT INTO system_settings (setting_key, setting_value) 
-                        VALUES ('db_version', ?) 
-                        ON DUPLICATE KEY UPDATE setting_value = ?
-                    ")->execute([$migrationVersion, $migrationVersion]);
-                    $currentVersion = $migrationVersion;
-                }
-            }
-        }
     }
 }

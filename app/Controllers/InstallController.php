@@ -30,100 +30,26 @@ class InstallController {
             die("Please fill all required fields.");
         }
 
+        $configWritten = false;
+
         try {
-            // 1. Verify Database Connection
-            $pdo = new PDO("mysql:host={$host};dbname={$name};charset=utf8mb4", $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-            ]);
+            // 1. Verify connection
+            $pdo = new PDO(
+                "mysql:host={$host};dbname={$name};charset=utf8mb4",
+                $user, $pass,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]
+            );
 
-            // 2. Base Core Tables
-            $pdo->exec("
-                CREATE TABLE IF NOT EXISTS users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    email VARCHAR(191) UNIQUE NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
+            // 2. Write config.php FIRST so Database::getInstance() can find it
+            $configDir = BASE_PATH . '/config';
+            if (!is_dir($configDir)) {
+                mkdir($configDir, 0755, true);
+            }
 
-                CREATE TABLE IF NOT EXISTS links (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    title VARCHAR(255) NULL,
-                    destination_url TEXT NOT NULL,
-                    short_code VARCHAR(50) UNIQUE NOT NULL,
-                    clicks INT DEFAULT 0,
-                    expires_at DATETIME NULL,
-                    status ENUM('active', 'disabled') DEFAULT 'active',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX(user_id),
-                    INDEX(short_code)
-                    expires_at DATETIME NULL,
-                    pass_hash VARCHAR(255) NULL,
-                    status ENUM('active', 'disabled') DEFAULT 'active',
-                );
-
-                CREATE TABLE IF NOT EXISTS click_logs (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    link_id INT NOT NULL,
-                    visitor_hash VARCHAR(64) NOT NULL,
-                    referrer VARCHAR(255) DEFAULT 'Direct',
-                    browser VARCHAR(50) DEFAULT 'Unknown',
-                    os VARCHAR(50) DEFAULT 'Unknown',
-                    device_type VARCHAR(20) DEFAULT 'Desktop',
-                    clicked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX(link_id),
-                    INDEX(clicked_at)
-                );
-
-                CREATE TABLE IF NOT EXISTS api_keys (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    api_key VARCHAR(64) UNIQUE NOT NULL,
-                    last_used_at TIMESTAMP NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX(user_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS tags (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    name VARCHAR(50) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX(user_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS link_tags (
-                    link_id INT NOT NULL,
-                    tag_id INT NOT NULL,
-                    PRIMARY KEY (link_id, tag_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS system_settings (
-                    setting_key VARCHAR(50) PRIMARY KEY,
-                    setting_value VARCHAR(255) NOT NULL
-                );
-            ");
-
-            // 3. Mark DB as Version 2
-            // 3. Mark DB as Version 3
-$pdo->exec("
-    INSERT INTO system_settings (setting_key, setting_value) 
-    VALUES ('db_version', '3') 
-    ON DUPLICATE KEY UPDATE setting_value = '3';
-");
-
-            // 4. Create Initial Administrator Account
-            $hash = password_hash($admin_pass, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)");
-            $stmt->execute([$admin_email, $hash]);
-            $admin_id = $pdo->lastInsertId();
-
-            // 5. Generate Initial API Key for Admin
-            $initial_api_key = 'lf_prod_' . bin2hex(random_bytes(16));
-            $pdo->prepare("INSERT INTO api_keys (user_id, api_key) VALUES (?, ?)")->execute([$admin_id, $initial_api_key]);
-
-            // 6. Write config/config.php securely
             $configContent = "<?php\nreturn [\n"
                 . "    'DB_HOST' => " . var_export($host, true) . ",\n"
                 . "    'DB_NAME' => " . var_export($name, true) . ",\n"
@@ -131,13 +57,29 @@ $pdo->exec("
                 . "    'DB_PASS' => " . var_export($pass, true) . ",\n"
                 . "];\n";
 
-            file_put_contents(BASE_PATH . '/config/config.php', $configContent);
+            if (file_put_contents($configDir . '/config.php', $configContent) === false) {
+                throw new Exception("Could not write config/config.php. Check folder permissions.");
+            }
+            $configWritten = true;
 
+            // 3. Run all pending migrations
+            $result = \App\Core\MigrationRunner::run();
+
+            // 4. Create initial admin account
+            $hash = password_hash($admin_pass, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (email, password, role, status) VALUES (?, ?, 'super_admin', 'active')");
+            $stmt->execute([$admin_email, $hash]);
+
+            // 5. Success → redirect to login
             $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
             header("Location: {$baseURL}/login");
             exit;
 
         } catch (Exception $e) {
+            // Roll back config so install can be retried
+            if ($configWritten) {
+                @unlink(BASE_PATH . '/config/config.php');
+            }
             die("<h3 style='color:red;'>Installation Failed:</h3><pre>" . htmlspecialchars($e->getMessage()) . "</pre>");
         }
     }

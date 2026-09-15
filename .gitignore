@@ -51,4 +51,4 @@ linkforge-*.zip
 # --- PHP debug / coverage ---
 .phpunit.result.cache
 .php-cs-fixer.cache
-*.log
+*.log*.bak*.bak

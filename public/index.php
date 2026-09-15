@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 define('LINKFORGE_START', microtime(true));
-define('APP_VERSION', '1.0.3');
+define('APP_VERSION', '1.0.4');
 // 1. Hardened Session Settings (Cloudflare & Subpath Aware)
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
     || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
