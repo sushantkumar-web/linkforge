@@ -17,11 +17,11 @@ class ReleaseNotesController {
      * Marks the current version as seen by this install.
      */
     public function dismiss() {
-        $version = defined('APP_VERSION') ? APP_VERSION : null;
-        if ($version) {
-            ReleaseNotes::markSeen($version);
-        }
-
+    $version = defined('APP_VERSION') ? APP_VERSION : null;
+    if ($version) {
+        $notesVersion = \App\Core\ReleaseNotes::notesVersionFor($version);
+        \App\Core\ReleaseNotes::markSeen($notesVersion ?? $version);
+    }
         if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
             header('Content-Type: application/json');
             echo json_encode(['ok' => true]);

@@ -34,23 +34,45 @@ class ReleaseNotes {
      * Returns the notes array if there's something to show, or null.
      */
     public static function shouldShow(): ?array {
-        $current = defined('APP_VERSION') ? APP_VERSION : null;
-        if (!$current) return null;
+    $current = defined('APP_VERSION') ? APP_VERSION : null;
+    if (!$current) return null;
 
-        $seen = self::seenVersion();
+    $seen = self::seenVersion();
 
-        // Never show for brand-new installs (no seen version set AND no data)
-        if ($seen === null) {
-            // First-ever load. Mark current as seen and don't show.
-            self::markSeen($current);
-            return null;
-        }
-
-        if ($seen === $current) return null;
-
-        // Version changed — show notes if we have them
-        return self::for($current);
+    // Never show on first-ever load
+    if ($seen === null) {
+        self::markSeen($current);
+        return null;
     }
+
+    // Find which version's notes would actually be shown (may be an earlier version)
+    $notes = self::for($current);
+    if (!$notes) return null;
+
+    // If we've already shown notes from that same version, don't show again
+    $notesVersion = self::notesVersionFor($current);
+    if ($seen === $notesVersion) return null;
+
+    return $notes;
+}
+
+/**
+ * Returns the version key whose notes would be shown for the given version.
+ * E.g. '1.2.2' → '1.2.0' (fallback).
+ */
+private static function notesVersionFor(string $version): ?string {
+    $all = self::all();
+    if (isset($all[$version])) return $version;
+
+    $candidates = array_filter(
+        array_keys($all),
+        fn($v) => version_compare($v, $version, '<=')
+    );
+    if (empty($candidates)) return null;
+
+    usort($candidates, 'version_compare');
+    return end($candidates);
+}
 
     public static function seenVersion(): ?string {
         try {

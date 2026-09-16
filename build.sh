@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="1.2.2"
+VERSION="1.2.3"
 BUILD_DIR="build_tmp"
 ARCHIVE_NAME="linkforge-v${VERSION}.zip"
 
@@ -88,17 +88,39 @@ fi
 
 echo "▶ Building frontend assets..."
 
-# --- CSS: comment-stripped + collapsed, with banner ---
+# --- CSS: concatenate tokens.css + app.css, then minify ---
+# Simple concatenation instead of regex-based @import resolution.
+# Guarantees tokens.css is inlined into a single app.min.css, so one
+# ?v=X.X.X query string invalidates the entire stylesheet.
 "$PHP_BIN" -r '
-$f = "'"$BUILD_DIR"'/public/assets/css/app.css";
-if (file_exists($f)) {
-    $css = file_get_contents($f);
-    $css = preg_replace("!/\*[^*]*\*+([^/][^*]*\*+)*/!", "", $css);
-    $css = str_replace(["\r\n", "\r", "\n", "\t"], "", $css);
-    $css = preg_replace("/\s*([\{\}:;,])\s*/", "$1", $css);
-    $css = str_replace(";}", "}", $css);
+$cssDir    = "'"$BUILD_DIR"'/public/assets/css/";
+$tokensSrc = $cssDir . "tokens.css";
+$appSrc    = $cssDir . "app.css";
+
+if (file_exists($appSrc)) {
+    $combined = "";
+
+    // 1. Prepend tokens.css (design tokens / CSS variables)
+    if (file_exists($tokensSrc)) {
+        $combined .= file_get_contents($tokensSrc) . "\n";
+    }
+
+    // 2. Append app.css — stripping any @import lines
+    $app = file_get_contents($appSrc);
+    $app = preg_replace("/@import[^;]+;/i", "", $app);
+    $combined .= $app;
+
+    // 3. Strip CSS comments
+    $combined = preg_replace("!/\*[^*]*\*+([^/][^*]*\*+)*/!", "", $combined);
+
+    // 4. Collapse whitespace
+    $combined = str_replace(["\r\n", "\r", "\n", "\t"], "", $combined);
+    $combined = preg_replace("/\s*([\{\}:;,])\s*/", "$1", $combined);
+    $combined = str_replace(";}", "}", $combined);
+
+    // 5. Write with banner
     $banner = "/*! LinkForge v'$VERSION' | AGPLv3 | https://github.com/sushantkumar-web/linkforge */\n";
-    file_put_contents("'"$BUILD_DIR"'/public/assets/css/app.min.css", $banner . trim($css));
+    file_put_contents($cssDir . "app.min.css", $banner . trim($combined));
 }
 '
 
@@ -110,7 +132,7 @@ JS_FILES="utils.js app.js search.js links.js"
 JS_BANNER="/*! LinkForge v${VERSION} | AGPLv3 | https://github.com/sushantkumar-web/linkforge */"
 JS_OUT="$BUILD_DIR/public/assets/js/app.bundle.js"
 
-# Write banner once
+# Write banner once, then append each file
 echo "$JS_BANNER" > "$JS_OUT"
 JS_COUNT=0
 
