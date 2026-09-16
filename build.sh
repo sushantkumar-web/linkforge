@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="1.2.1"
+VERSION="1.2.2"
 BUILD_DIR="build_tmp"
 ARCHIVE_NAME="linkforge-v${VERSION}.zip"
 

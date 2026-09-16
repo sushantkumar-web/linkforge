@@ -7,9 +7,27 @@ class ReleaseNotes {
      * Returns the release notes for a specific version, or null if none exist.
      */
     public static function for(string $version): ?array {
-        $all = self::all();
-        return $all[$version] ?? null;
+    $all = self::all();
+
+    // Exact match — perfect
+    if (isset($all[$version])) {
+        return $all[$version];
     }
+
+    // Hotfix fallback: if this version has no notes (e.g. 1.2.1),
+    // use the notes from the closest earlier version that does (e.g. 1.2.0).
+    $candidates = array_filter(array_keys($all), function ($v) use ($version) {
+        return version_compare($v, $version, '<=');
+    });
+    if (empty($candidates)) {
+        return null;
+    }
+
+    usort($candidates, 'version_compare');
+    $best = end($candidates);
+
+    return $all[$best];
+}
 
     /**
      * Should we show the What's New modal to this user?
