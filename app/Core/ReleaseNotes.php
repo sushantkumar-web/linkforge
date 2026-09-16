@@ -39,19 +39,22 @@ class ReleaseNotes {
 
     $seen = self::seenVersion();
 
-    // Never show on first-ever load
+    // First-ever load — mark and never show
     if ($seen === null) {
         self::markSeen($current);
         return null;
     }
 
-    // Find which version's notes would actually be shown (may be an earlier version)
     $notes = self::for($current);
     if (!$notes) return null;
 
-    // If we've already shown notes from that same version, don't show again
     $notesVersion = self::notesVersionFor($current);
     if ($seen === $notesVersion) return null;
+
+    // Mark as seen IMMEDIATELY when we decide to show it.
+    // This guarantees the modal shows at most once per release,
+    // even if the "Got it" POST fails or the user just refreshes.
+    self::markSeen($notesVersion);
 
     return $notes;
 }
