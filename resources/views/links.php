@@ -344,9 +344,49 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
         <form method="POST" action="<?= $baseURL ?>/links/create">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <div class="form-group">
-                <label class="form-label">Destination URL</label>
-                <input type="url" name="url" placeholder="https://example.com/long-page" required class="form-input">
-            </div>
+    <label class="form-label">Destination URL</label>
+    <input type="url" name="url" id="createUrl" placeholder="https://example.com/long-page" required class="form-input"
+           oninput="updateUtmPreview()">
+</div>
+
+<?php
+// Load user's UTM presets for the dropdown
+$utmStmt = \App\Core\Database::getInstance()->prepare("
+    SELECT id, name, utm_source, utm_medium, utm_campaign, utm_term, utm_content, is_default
+    FROM utm_presets
+    WHERE user_id = ?
+    ORDER BY is_default DESC, name ASC
+");
+$utmStmt->execute([$_SESSION['user_id']]);
+$utmPresets = $utmStmt->fetchAll(\PDO::FETCH_ASSOC);
+?>
+
+<?php if (!empty($utmPresets)): ?>
+<div class="form-group">
+    <label class="form-label">
+        UTM Preset <span style="font-size: 11px; color: var(--text-muted);">(optional)</span>
+    </label>
+    <select name="utm_preset_id" id="createUtmPreset" class="form-input" onchange="updateUtmPreview()">
+        <option value="">— No tracking —</option>
+        <?php foreach ($utmPresets as $up): ?>
+            <option value="<?= (int)$up['id'] ?>"
+                    data-source="<?= htmlspecialchars($up['utm_source'], ENT_QUOTES) ?>"
+                    data-medium="<?= htmlspecialchars($up['utm_medium'], ENT_QUOTES) ?>"
+                    data-campaign="<?= htmlspecialchars($up['utm_campaign'] ?? '', ENT_QUOTES) ?>"
+                    data-term="<?= htmlspecialchars($up['utm_term'] ?? '', ENT_QUOTES) ?>"
+                    data-content="<?= htmlspecialchars($up['utm_content'] ?? '', ENT_QUOTES) ?>"
+                    <?= (int)$up['is_default'] === 1 ? 'selected' : '' ?>>
+                <?= htmlspecialchars($up['name']) ?><?= (int)$up['is_default'] === 1 ? ' (default)' : '' ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <div id="utmPreview" style="display: none; margin-top: 8px; background: var(--bg-app); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); word-break: break-all; line-height: 1.6;">
+    </div>
+    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+        Manage presets at <a href="<?= $baseURL ?>/utm-presets" style="color: var(--accent);">/utm-presets</a>
+    </span>
+</div>
+<?php endif; ?>
             <div class="form-group">
                 <label class="form-label">Title (optional)</label>
                 <input type="text" name="title" placeholder="Campaign or Resource title" class="form-input">
@@ -435,9 +475,9 @@ $availableDomains = $domainStmt->fetchAll(\PDO::FETCH_ASSOC);
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             <input type="hidden" name="link_id" id="editLinkId">
             <div class="form-group">
-                <label class="form-label">Destination URL</label>
-                <input type="url" name="url" id="editUrl" required class="form-input">
-            </div>
+    <label class="form-label">Destination URL</label>
+    <input type="url" name="url" id="editUrl" required class="form-input">
+</div>
             <div class="form-group">
                 <label class="form-label">Title</label>
                 <input type="text" name="title" id="editTitle" class="form-input">

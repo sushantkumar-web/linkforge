@@ -63,6 +63,9 @@ class LinkController {
         $passHash = $password ? password_hash($password, PASSWORD_BCRYPT) : null;
 $targeting = $this->parseTargeting($_POST['targeting_json'] ?? null);
 
+// Attach UTM preset params if selected
+$url = $this->applyUtmPreset($url, $_POST['utm_preset_id'] ?? null, $userId, $pdo);
+
 try {
     $stmt = $pdo->prepare("
         INSERT INTO links (user_id, domain_id, title, destination_url, fallback_url, short_code, expires_at, pass_hash, targeting)
@@ -766,5 +769,66 @@ public function index() {
     $activeTag = $tag;
     $baseURL = "http://" . $_SERVER['HTTP_HOST'] . str_replace('/index.php', '', $_SERVER['PHP_SELF']);
     require BASE_PATH . '/resources/views/links.php';
+}
+/**
+ * Append UTM parameters from a preset to a destination URL.
+ * Strips any existing utm_* params first to avoid duplicates.
+ * Returns the modified URL, or the original if no preset or preset not found.
+ */
+private function applyUtmPreset(string $url, $presetId, int $userId, $pdo): string {
+    if (empty($presetId)) return $url;
+
+    $presetId = (int)$presetId;
+    if (!$presetId) return $url;
+
+    $stmt = $pdo->prepare("
+        SELECT utm_source, utm_medium, utm_campaign, utm_term, utm_content
+        FROM utm_presets
+        WHERE id = ? AND user_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$presetId, $userId]);
+    $preset = $stmt->fetch(\PDO::FETCH_ASSOC);
+    if (!$preset) return $url;
+
+    // Build the UTM query string
+    $utm = [];
+    foreach (['source', 'medium', 'campaign', 'term', 'content'] as $key) {
+        $val = trim((string)($preset['utm_' . $key] ?? ''));
+        if ($val !== '') {
+            $utm['utm_' . $key] = $val;
+        }
+    }
+    if (empty($utm)) return $url;
+
+    // Split off any existing fragment (#section)
+    $fragment = '';
+    if (($pos = strpos($url, '#')) !== false) {
+        $fragment = substr($url, $pos);
+        $url = substr($url, 0, $pos);
+    }
+
+    // Split off any existing query string
+    $baseQuery = '';
+    if (($pos = strpos($url, '?')) !== false) {
+        $baseQuery = substr($url, $pos + 1);
+        $url = substr($url, 0, $pos);
+    }
+
+    // Parse the base query, drop any existing utm_* keys
+    $baseParams = [];
+    if ($baseQuery !== '') {
+        parse_str($baseQuery, $baseParams);
+        foreach (array_keys($baseParams) as $key) {
+            if (str_starts_with($key, 'utm_')) {
+                unset($baseParams[$key]);
+            }
+        }
+    }
+
+    // Merge base params with new UTM params (UTM wins on conflicts)
+    $merged = array_merge($baseParams, $utm);
+
+    return $url . '?' . http_build_query($merged, '', '&', PHP_QUERY_RFC3986) . $fragment;
 }
 }

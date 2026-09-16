@@ -205,13 +205,13 @@ public function saveSecurity() {
     $pdo = Database::getInstance();
 
     $fields = [
-        'captcha_enabled'  => !empty($_POST['captcha_enabled']) ? '1' : '0',
-        'captcha_provider' => in_array($_POST['captcha_provider'] ?? '', ['turnstile', 'recaptcha', 'hcaptcha'], true)
-                              ? $_POST['captcha_provider']
-                              : 'turnstile',
-        'captcha_site_key' => trim($_POST['captcha_site_key'] ?? ''),
-    ];
-
+    'captcha_enabled'       => !empty($_POST['captcha_enabled']) ? '1' : '0',
+    'captcha_provider'      => in_array($_POST['captcha_provider'] ?? '', ['turnstile', 'recaptcha', 'hcaptcha'], true)
+                               ? $_POST['captcha_provider']
+                               : 'turnstile',
+    'captcha_site_key'      => trim($_POST['captcha_site_key'] ?? ''),
+    'bot_filtering_enabled' => !empty($_POST['bot_filtering_enabled']) ? '1' : '0',
+];
     // Only update secret if the admin actually typed a new one
     if (!empty($_POST['captcha_secret_key'])) {
         $fields['captcha_secret_key'] = trim($_POST['captcha_secret_key']);

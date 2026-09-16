@@ -3,6 +3,7 @@ namespace App\Controllers;
 
 use App\Core\Database;
 use PDO;
+use App\Core\ReleaseNotes;
 
 class DashboardController {
 
@@ -158,6 +159,10 @@ class DashboardController {
         $devices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $baseURL = "http://" . $_SERVER['HTTP_HOST'] . str_replace('/index.php', '', $_SERVER['PHP_SELF']);
-        require BASE_PATH . '/resources/views/dashboard.php';
+
+// What's New modal (shows once per version bump)
+$whatsNew = ReleaseNotes::shouldShow();
+
+require BASE_PATH . '/resources/views/dashboard.php';
     }
 }

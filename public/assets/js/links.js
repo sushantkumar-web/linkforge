@@ -89,3 +89,66 @@
         init();
     }
 })();
+// -------- UTM preset live preview --------
+window.updateUtmPreview = function () {
+    var urlInput  = document.getElementById('createUrl');
+    var presetSel = document.getElementById('createUtmPreset');
+    var preview   = document.getElementById('utmPreview');
+    if (!urlInput || !presetSel || !preview) return;
+
+    var presetId = presetSel.value;
+    if (!presetId) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        return;
+    }
+
+    var opt = presetSel.options[presetSel.selectedIndex];
+    var params = [];
+    ['source', 'medium', 'campaign', 'term', 'content'].forEach(function (k) {
+        var v = (opt.dataset[k] || '').trim();
+        if (v) {
+            params.push('utm_' + k + '=' + encodeURIComponent(v));
+        }
+    });
+
+    if (!params.length) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    var base = urlInput.value.trim() || 'https://example.com/page';
+    preview.style.display = 'block';
+
+    var html = '<span style="color: var(--text-muted);">' + escapeHtmlJs(base.replace(/[?&]utm_[^&]*/g, '').replace(/[?&]$/, '')) + '</span><br>?' +
+        params.map(function (p) {
+            var kv = p.split('=');
+            return '<span style="color: #8B8DF8;">' + kv[0] + '</span>=<span style="color: #F5F5F5;">' + kv[1] + '</span>';
+        }).join('<br>&amp;');
+
+    preview.innerHTML = html;
+};
+
+// Helper — avoid depending on other utility files
+function escapeHtmlJs(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Initialize preview on page load (in case a default preset is pre-selected)
+(function () {
+    function init() {
+        if (typeof window.updateUtmPreview === 'function') {
+            window.updateUtmPreview();
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

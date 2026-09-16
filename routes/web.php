@@ -35,6 +35,8 @@ $routes = [
         '/link' => 'App\Controllers\LinkController@show',
         '/settings/health' => 'App\Controllers\SettingsController@health',
         '/domains' => 'App\Controllers\DomainsController@index',
+        '/utm-presets'       => 'App\Controllers\UtmController@index',
+        '/api/utm-presets'   => 'App\Controllers\UtmController@apiList',
     ],
     'POST' => [
         '/install' => 'App\Controllers\InstallController@setup',
@@ -67,6 +69,10 @@ $routes = [
         '/domains/set-primary'  => 'App\Controllers\DomainsController@setPrimary',
         '/domains/delete'       => 'App\Controllers\DomainsController@delete',
         '/settings/security' => 'App\Controllers\SettingsController@saveSecurity',
+        '/utm-presets/store'  => 'App\Controllers\UtmController@store',
+        '/utm-presets/update' => 'App\Controllers\UtmController@update',
+        '/utm-presets/delete' => 'App\Controllers\UtmController@delete',
+        '/release-notes/dismiss' => 'App\Controllers\ReleaseNotesController@dismiss',
     ]
 ];
 

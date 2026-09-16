@@ -62,6 +62,9 @@ $role = $_SESSION['role'] ?? 'user';
             <a href="<?= $baseURL ?>/tags" class="nav-link <?= strpos($currentURI, '/tags') !== false ? 'active' : '' ?>">
                 <i class="fa-solid fa-tags" style="width: 18px;"></i> <span class="nav-text">Tags</span>
             </a>
+            <a href="<?= $baseURL ?>/utm-presets" class="nav-link <?= strpos($currentURI, '/utm-presets') !== false ? 'active' : '' ?>">
+                <i class="fa-solid fa-bullseye" style="width: 18px;"></i> <span class="nav-text">UTM Presets</span>
+            </a>
 
             <div class="nav-section-title">System</div>
             <?php if (in_array($role, ['super_admin', 'admin'])): ?>
@@ -72,6 +75,19 @@ $role = $_SESSION['role'] ?? 'user';
             <a href="<?= $baseURL ?>/settings" class="nav-link <?= strpos($currentURI, '/settings') !== false ? 'active' : '' ?>">
                 <i class="fa-solid fa-gear" style="width: 18px;"></i> <span class="nav-text">Settings</span>
             </a>
+
+            <div class="nav-section-title">Help</div>
+<a href="https://docs.thesushant.cloud" target="_blank" rel="noopener" class="nav-link">
+    <i class="fa-solid fa-book" style="width: 18px;"></i> <span class="nav-text">Documentation</span>
+    <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: auto; font-size: 9px; color: var(--text-muted);"></i>
+</a>
+<a href="https://github.com/sushantkumar-web/linkforge/issues/new" target="_blank" rel="noopener" class="nav-link">
+    <i class="fa-solid fa-circle-exclamation" style="width: 18px;"></i> <span class="nav-text">Report a bug</span>
+    <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: auto; font-size: 9px; color: var(--text-muted);"></i>
+</a>
+<a href="mailto:support@thesushant.in" class="nav-link">
+    <i class="fa-solid fa-envelope" style="width: 18px;"></i> <span class="nav-text">Contact</span>
+</a>
         </nav>
         <div class="sidebar-footer">
             <span>v<?= $appVersion ?></span>
@@ -136,13 +152,12 @@ $role = $_SESSION['role'] ?? 'user';
     window.LINKFORGE_VERSION  = '<?= $appVersion ?>';
 </script>
 
-<!-- Bundle in production, individual files in dev -->
-<!-- Core utilities — must load first so onclick handlers find their targets -->
-<script src="<?= $baseURL ?>/assets/js/utils.js?v=<?= $appVersion ?>"></script>
-
 <?php if ($useBundle): ?>
+<!-- Production: single bundled file (includes utils.js + app.js + search.js + links.js) -->
 <script src="<?= $baseURL ?>/assets/js/app.bundle.js?v=<?= $appVersion ?>"></script>
 <?php else: ?>
+<!-- Development: load individual files for easier debugging -->
+<script src="<?= $baseURL ?>/assets/js/utils.js?v=<?= $appVersion ?>"></script>
 <script src="<?= $baseURL ?>/assets/js/app.js?v=<?= $appVersion ?>"></script>
 <script src="<?= $baseURL ?>/assets/js/search.js?v=<?= $appVersion ?>"></script>
 <?php if (strpos($currentURI, '/links') !== false): ?>

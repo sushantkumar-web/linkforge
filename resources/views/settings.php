@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
+$currentURI = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $currentTab = $_GET['tab'] ?? 'updates';
 $role = $_SESSION['role'] ?? 'user';
 $isAdmin = in_array($role, ['super_admin', 'admin']);
@@ -30,8 +31,8 @@ $settings = $settings ?? [];
     <?php if ($isAdmin): ?>
         <a href="<?= $baseURL ?>/settings?tab=email" class="tab-item <?= $currentTab === 'email' ? 'active' : '' ?>">Email</a>
         <a href="<?= $baseURL ?>/settings?tab=security" class="tab-item <?= $currentTab === 'security' ? 'active' : '' ?>">Security</a>
-        <a href="<?= $baseURL ?>/domains" class="tab-item <?= strpos($currentURI ?? '', '/domains') !== false ? 'active' : '' ?>">Domains</a>
-        <a href="<?= $baseURL ?>/settings/health" class="tab-item <?= strpos($currentURI ?? '', '/settings/health') !== false ? 'active' : '' ?>">Health</a>
+        <a href="<?= $baseURL ?>/domains" class="tab-item <?= strpos($currentURI, '/domains') !== false ? 'active' : '' ?>">Domains</a>
+        <a href="<?= $baseURL ?>/settings/health" class="tab-item <?= strpos($currentURI, '/settings/health') !== false ? 'active' : '' ?>">Health</a>
     <?php endif; ?>
 </div>
 
@@ -80,7 +81,6 @@ $settings = $settings ?? [];
 
 <?php elseif ($currentTab === 'email' && $isAdmin): ?>
 
-    <!-- Email configuration -->
     <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; max-width: 680px; margin-bottom: 24px;">
         <div style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Email Configuration</div>
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
@@ -154,7 +154,6 @@ $settings = $settings ?? [];
         </form>
     </div>
 
-    <!-- Test email card -->
     <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; max-width: 680px;">
         <div style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Send a Test Email</div>
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
@@ -169,7 +168,7 @@ $settings = $settings ?? [];
         <div id="testEmailResult" style="margin-top: 12px; font-size: 13px; display: none;"></div>
     </div>
 
-    <?php elseif ($currentTab === 'security' && $isAdmin): ?>
+<?php elseif ($currentTab === 'security' && $isAdmin): ?>
 
     <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; max-width: 680px;">
         <div style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Captcha Protection</div>
@@ -222,8 +221,71 @@ $settings = $settings ?? [];
                 </ol>
             </div>
 
+            <div style="border-top: 1px solid var(--border-color); margin-top: 24px; padding-top: 24px;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Traffic Filtering</div>
+                <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" name="bot_filtering_enabled" value="1" style="margin-top: 3px;"
+                        <?= ($settings['bot_filtering_enabled'] ?? '1') === '1' ? 'checked' : '' ?>>
+                    <span>
+                        <strong>Filter bots and crawlers</strong>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.6;">
+                            Excludes Google, Bing, Facebook link previews, uptime monitors, SEO tools, and headless clients from click counts.
+                            Bots are still redirected correctly — they just don't appear in analytics.
+                            Recommended: <strong>on</strong>.
+                        </div>
+                    </span>
+                </label>
+            </div>
+
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </form>
+    </div>
+
+<?php elseif ($currentTab === 'help' && $isAdmin): ?>
+
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; max-width: 680px;">
+        <div style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Help Links</div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+            Where the Help section in the sidebar points. Customize these for your users.
+        </p>
+
+        <form method="POST" action="<?= $baseURL ?>/settings/help">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+            <div class="form-group">
+                <label class="form-label">Documentation URL</label>
+                <input type="url" name="help_docs_url"
+                       value="<?= htmlspecialchars($settings['help_docs_url'] ?? '') ?>"
+                       placeholder="https://docs.example.com" class="form-input font-mono">
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                    Link to your docs site. Opens in a new tab.
+                </span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Bug Report URL</label>
+                <input type="url" name="help_issues_url"
+                       value="<?= htmlspecialchars($settings['help_issues_url'] ?? '') ?>"
+                       placeholder="https://github.com/you/repo/issues/new" class="form-input font-mono">
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                    Where users report issues. GitHub Issues recommended.
+                </span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Contact URL or Email</label>
+                <input type="text" name="help_contact_url"
+                       value="<?= htmlspecialchars($settings['help_contact_url'] ?? '') ?>"
+                       placeholder="mailto:you@example.com or https://..." class="form-input font-mono">
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                    Use <code>mailto:</code> for email or <code>https://</code> for a contact page.
+                </span>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                <button type="submit" class="btn btn-primary">Save Help Links</button>
             </div>
         </form>
     </div>
@@ -290,6 +352,7 @@ function sendTestEmail() {
 }
 </script>
 <?php endif; ?>
+
 <?php
 $slot = ob_get_clean();
 $pageTitle = "Settings - LinkForge";

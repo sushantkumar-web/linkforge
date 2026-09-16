@@ -447,6 +447,9 @@ function renderBreakdownRow($name, $count, $total, $color = '#6E7BF2') {
 </div>
 
 <?php
+// What's New modal partial (renders only when $whatsNew is set)
+require BASE_PATH . '/resources/views/partials/whats-new-modal.php';
+
 $slot = ob_get_clean();
 $pageTitle = "Overview - LinkForge";
 require BASE_PATH . '/resources/views/layouts/app.php';
