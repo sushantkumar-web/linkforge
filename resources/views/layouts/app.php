@@ -2,9 +2,13 @@
 // resources/views/layouts/app.php
 $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
 $currentURI = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$appVersion = defined('APP_VERSION') ? APP_VERSION : '1.0.2';
+$appVersion = defined('APP_VERSION') ? APP_VERSION : '1.1.1';
 $cssFile = file_exists(BASE_PATH . '/public/assets/css/app.min.css') ? 'app.min.css' : 'app.css';
-$jsFile  = file_exists(BASE_PATH . '/public/assets/js/app.min.js') ? 'app.min.js' : 'app.js';
+
+// Prefer the production bundle (built by build.sh) when available,
+// otherwise fall back to individual files for local development.
+$useBundle = file_exists(BASE_PATH . '/public/assets/js/app.bundle.js');
+
 $role = $_SESSION['role'] ?? 'user';
 ?>
 <!DOCTYPE html>
@@ -25,7 +29,7 @@ $role = $_SESSION['role'] ?? 'user';
 <body>
 <div class="app-layout">
 
-    <!-- Mobile sidebar backdrop (visible only on mobile when sidebar is open) -->
+    <!-- Mobile sidebar backdrop -->
     <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
 
     <aside class="sidebar" id="appSidebar">
@@ -126,54 +130,21 @@ $role = $_SESSION['role'] ?? 'user';
     overflow-y: auto;
 "></div>
 
-<!-- Global config for JS -->
+<!-- Global config -->
 <script>
     window.LINKFORGE_BASE_URL = '<?= $baseURL ?>';
     window.LINKFORGE_VERSION  = '<?= $appVersion ?>';
-
-    // -------- Mobile sidebar toggle --------
-    function toggleSidebar() {
-        var sidebar  = document.getElementById('appSidebar');
-        var backdrop = document.getElementById('sidebarBackdrop');
-        if (!sidebar) return;
-        var isOpen = sidebar.classList.toggle('open');
-        if (backdrop) backdrop.classList.toggle('active', isOpen);
-        // Prevent body scroll while the drawer is open
-        document.body.style.overflow = isOpen ? 'hidden' : '';
-    }
-
-    // Auto-close sidebar when a nav link is tapped on mobile
-    document.querySelectorAll('#appSidebar .nav-link').forEach(function(link) {
-        link.addEventListener('click', function() {
-            if (window.innerWidth <= 768) {
-                var sidebar  = document.getElementById('appSidebar');
-                var backdrop = document.getElementById('sidebarBackdrop');
-                if (sidebar) sidebar.classList.remove('open');
-                if (backdrop) backdrop.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-    });
-
-    // Close drawer when the viewport grows past mobile
-    window.addEventListener('resize', function() {
-        if (window.innerWidth > 768) {
-            var sidebar  = document.getElementById('appSidebar');
-            var backdrop = document.getElementById('sidebarBackdrop');
-            if (sidebar)  sidebar.classList.remove('open');
-            if (backdrop) backdrop.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    });
 </script>
 
-<!-- App JS -->
-<script src="<?= $baseURL ?>/assets/js/<?= $jsFile ?>?v=<?= $appVersion ?>"></script>
-
-<!-- Search (external file so the HTML minifier can't mangle it) -->
+<!-- Bundle in production, individual files in dev -->
+<?php if ($useBundle): ?>
+<script src="<?= $baseURL ?>/assets/js/app.bundle.js?v=<?= $appVersion ?>"></script>
+<?php else: ?>
+<script src="<?= $baseURL ?>/assets/js/app.js?v=<?= $appVersion ?>"></script>
 <script src="<?= $baseURL ?>/assets/js/search.js?v=<?= $appVersion ?>"></script>
 <?php if (strpos($currentURI, '/links') !== false): ?>
 <script src="<?= $baseURL ?>/assets/js/links.js?v=<?= $appVersion ?>"></script>
+<?php endif; ?>
 <?php endif; ?>
 </body>
 </html>

@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 define('LINKFORGE_START', microtime(true));
-define('APP_VERSION', '1.1.0');
+define('APP_VERSION', '1.1.1');
 // 1. Hardened Session Settings (Cloudflare & Subpath Aware)
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
     || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
@@ -38,14 +38,32 @@ header("Referrer-Policy: strict-origin-when-cross-origin");
 
 // 4. Output Minifier
 function minify_html($buffer) {
+    // 1. Protect <script> and <style> blocks from any modification.
+    //    Minifying inline JS with regex is unreliable and breaks pages.
+    $protected = [];
+    $buffer = preg_replace_callback(
+        '#<(script|style)\b[^>]*>.*?</\1>#is',
+        function ($m) use (&$protected) {
+            $key = "\x00LF_PROTECTED_" . count($protected) . "\x00";
+            $protected[$key] = $m[0];
+            return $key;
+        },
+        $buffer
+    );
+
+    // 2. Safe whitespace collapsing on the remaining HTML.
     $search = [
-        '/\>[^\S ]+/s',
-        '/[^\S ]+\</s',
-        '/(\s)+/s',
-        '/<!--(.|\s)*?-->/'
+        '/\>[^\S ]+/s',   // strip whitespace after tags
+        '/[^\S ]+\</s',   // strip whitespace before tags
+        '/(\s)+/s',       // collapse multiple whitespace
     ];
-    $replace = ['>', '<', '\\1', ''];
-    return preg_replace($search, $replace, $buffer);
+    $replace = ['>', '<', '\\1'];
+    $buffer = preg_replace($search, $replace, $buffer);
+    // 3. Restore the protected blocks.
+    if (!empty($protected)) {
+        $buffer = strtr($buffer, $protected);
+    }
+    return $buffer;
 }
 ob_start("minify_html");
 

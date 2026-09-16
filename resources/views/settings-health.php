@@ -105,7 +105,7 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
         <tbody>
             <?php foreach ($fsStatus as $label => $status): ?>
             <tr>
-                <td class="font-mono" style="font-size: 12px;"><?= htmlspecialchars($label) ?></td>
+                <td class="font-mono" style="font-size: 12px;" title="<?= htmlspecialchars($checks[$label]) ?>"><?= htmlspecialchars($label) ?></td>
                 <td>
                     <?php if ($status['exists']): ?>
                         <span class="badge" style="background: rgba(16,185,129,0.15); color: #10B981; font-size: 11px;">Yes</span>

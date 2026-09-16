@@ -82,3 +82,36 @@ document.addEventListener('keydown', (e) => {
         document.querySelectorAll('.modal-backdrop').forEach(m => m.style.display = 'none');
     }
 });
+// -------- Mobile sidebar drawer --------
+window.toggleSidebar = function() {
+    var sidebar  = document.getElementById('appSidebar');
+    var backdrop = document.getElementById('sidebarBackdrop');
+    if (!sidebar) return;
+    var isOpen = sidebar.classList.toggle('open');
+    if (backdrop) backdrop.classList.toggle('active', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+};
+
+(function () {
+    function closeOnMobile() {
+        if (window.innerWidth > 768) return;
+        var sidebar  = document.getElementById('appSidebar');
+        var backdrop = document.getElementById('sidebarBackdrop');
+        if (sidebar)  sidebar.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    function bind() {
+        document.querySelectorAll('#appSidebar .nav-link').forEach(function (link) {
+            link.addEventListener('click', closeOnMobile);
+        });
+        window.addEventListener('resize', closeOnMobile);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+    } else {
+        bind();
+    }
+})();
