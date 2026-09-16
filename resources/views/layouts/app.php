@@ -137,6 +137,9 @@ $role = $_SESSION['role'] ?? 'user';
 </script>
 
 <!-- Bundle in production, individual files in dev -->
+<!-- Core utilities — must load first so onclick handlers find their targets -->
+<script src="<?= $baseURL ?>/assets/js/utils.js?v=<?= $appVersion ?>"></script>
+
 <?php if ($useBundle): ?>
 <script src="<?= $baseURL ?>/assets/js/app.bundle.js?v=<?= $appVersion ?>"></script>
 <?php else: ?>

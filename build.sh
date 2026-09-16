@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="1.1.1"
+VERSION="1.1.2"
 BUILD_DIR="build_tmp"
 ARCHIVE_NAME="linkforge-v${VERSION}.zip"
 
@@ -106,28 +106,36 @@ if (file_exists($f)) {
 # Regex-based JS minification is fundamentally unsafe (breaks regex literals,
 # strings containing //, template literals, and arrow functions).
 # The web server's gzip/brotli compresses the bundle by 70-80% anyway.
-JS_FILES="app.js search.js links.js"
+JS_FILES="utils.js app.js search.js links.js"
 JS_BANNER="/*! LinkForge v${VERSION} | AGPLv3 | https://github.com/sushantkumar-web/linkforge */"
 JS_OUT="$BUILD_DIR/public/assets/js/app.bundle.js"
-JS_TMP=""
+
+# Write banner once
+echo "$JS_BANNER" > "$JS_OUT"
+JS_COUNT=0
 
 for js in $JS_FILES; do
     src="$BUILD_DIR/public/assets/js/$js"
     if [ -f "$src" ]; then
-        if [ -z "$JS_TMP" ]; then
-            echo "$JS_BANNER" > "$JS_OUT"
-        fi
         echo "" >> "$JS_OUT"
         echo "/* ---- $js ---- */" >> "$JS_OUT"
         cat "$src" >> "$JS_OUT"
         echo "" >> "$JS_OUT"
+        JS_COUNT=$((JS_COUNT + 1))
+        echo "  ✓ bundled $js"
+    else
+        echo "  ⚠ missing $js (skipped)"
     fi
 done
 
-if [ -f "$JS_OUT" ]; then
-    SIZE_RAW=$(wc -c < "$JS_OUT" | tr -d ' ')
-    echo "▶ Bundled $JS_FILES into app.bundle.js ($SIZE_RAW bytes raw)"
+if [ "$JS_COUNT" -eq 0 ]; then
+    echo "✕ ABORT: no JS files found to bundle."
+    rm -f "$JS_OUT"
+    exit 1
 fi
+
+SIZE_RAW=$(wc -c < "$JS_OUT" | tr -d ' ')
+echo "▶ Bundled $JS_COUNT files into app.bundle.js ($SIZE_RAW bytes raw)"
 
 echo "▶ Assets compiled."
 
