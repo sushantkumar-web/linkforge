@@ -30,7 +30,11 @@ $routes = [
         '/search' => 'App\Controllers\SearchController@index',
         '/search/quick' => 'App\Controllers\SearchController@quick',
         '/tags' => 'App\Controllers\TagsController@index',
-        '/links' => 'App\Controllers\DashboardController@index',
+        '/links' => 'App\Controllers\LinkController@index',
+        '/webhooks' => 'App\Controllers\WebhooksController@index',
+        '/link' => 'App\Controllers\LinkController@show',
+        '/settings/health' => 'App\Controllers\SettingsController@health',
+        '/domains' => 'App\Controllers\DomainsController@index',
     ],
     'POST' => [
         '/install' => 'App\Controllers\InstallController@setup',
@@ -52,6 +56,17 @@ $routes = [
         '/settings/email/test' => 'App\Controllers\SettingsController@testEmail',
         '/tags/delete' => 'App\Controllers\TagsController@delete',
         '/links/bulk' => 'App\Controllers\LinkController@bulk',
+        '/webhooks/store'  => 'App\Controllers\WebhooksController@store',
+        '/webhooks/update' => 'App\Controllers\WebhooksController@update',
+        '/webhooks/delete' => 'App\Controllers\WebhooksController@delete',
+        '/webhooks/toggle' => 'App\Controllers\WebhooksController@toggle',
+        '/webhooks/test'   => 'App\Controllers\WebhooksController@test',
+        '/webhooks/retry'  => 'App\Controllers\WebhooksController@retry',
+        '/domains/store'        => 'App\Controllers\DomainsController@store',
+        '/domains/verify'       => 'App\Controllers\DomainsController@verify',
+        '/domains/set-primary'  => 'App\Controllers\DomainsController@setPrimary',
+        '/domains/delete'       => 'App\Controllers\DomainsController@delete',
+        '/settings/security' => 'App\Controllers\SettingsController@saveSecurity',
     ]
 ];
 

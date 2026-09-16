@@ -29,6 +29,9 @@ $settings = $settings ?? [];
     <a href="<?= $baseURL ?>/settings?tab=updates" class="tab-item <?= $currentTab === 'updates' ? 'active' : '' ?>">Updates</a>
     <?php if ($isAdmin): ?>
         <a href="<?= $baseURL ?>/settings?tab=email" class="tab-item <?= $currentTab === 'email' ? 'active' : '' ?>">Email</a>
+        <a href="<?= $baseURL ?>/settings?tab=security" class="tab-item <?= $currentTab === 'security' ? 'active' : '' ?>">Security</a>
+        <a href="<?= $baseURL ?>/domains" class="tab-item <?= strpos($currentURI ?? '', '/domains') !== false ? 'active' : '' ?>">Domains</a>
+        <a href="<?= $baseURL ?>/settings/health" class="tab-item <?= strpos($currentURI ?? '', '/settings/health') !== false ? 'active' : '' ?>">Health</a>
     <?php endif; ?>
 </div>
 
@@ -166,65 +169,127 @@ $settings = $settings ?? [];
         <div id="testEmailResult" style="margin-top: 12px; font-size: 13px; display: none;"></div>
     </div>
 
-    <script>
-    function toggleDriverFields() {
-        var driver = document.getElementById('mailDriver').value;
-        document.getElementById('smtpFields').style.display = (driver === 'smtp') ? 'block' : 'none';
-    }
-    toggleDriverFields();
+    <?php elseif ($currentTab === 'security' && $isAdmin): ?>
 
-    function sendTestEmail() {
-        var btn = document.getElementById('testEmailBtn');
-        var input = document.getElementById('testEmailInput');
-        var result = document.getElementById('testEmailResult');
-        var baseURL = '<?= $baseURL ?>';
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; max-width: 680px;">
+        <div style="font-size: 15px; font-weight: 600; margin-bottom: 4px;">Captcha Protection</div>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+            Require a captcha challenge on login and password reset forms to block bot attacks.
+        </p>
 
-        var email = input.value.trim();
-        if (!email) {
-            result.style.display = 'block';
-            result.style.color = '#EF4444';
-            result.textContent = 'Enter an email address first.';
-            return;
-        }
+        <form method="POST" action="<?= $baseURL ?>/settings/security">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
 
-        btn.disabled = true;
-        btn.textContent = 'Sending…';
-        result.style.display = 'none';
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;">
+                    <input type="checkbox" name="captcha_enabled" value="1" <?= ($settings['captcha_enabled'] ?? '0') === '1' ? 'checked' : '' ?>>
+                    Enable captcha on login and password reset
+                </label>
+            </div>
 
-        var fd = new FormData();
-        fd.append('test_email', email);
-        fd.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+            <div class="form-group">
+                <label class="form-label">Provider</label>
+                <select name="captcha_provider" class="form-input">
+                    <option value="turnstile" <?= ($settings['captcha_provider'] ?? 'turnstile') === 'turnstile' ? 'selected' : '' ?>>Cloudflare Turnstile (recommended — free, privacy-first, invisible)</option>
+                    <option value="recaptcha" <?= ($settings['captcha_provider'] ?? '') === 'recaptcha' ? 'selected' : '' ?>>Google reCAPTCHA v3</option>
+                    <option value="hcaptcha"  <?= ($settings['captcha_provider'] ?? '') === 'hcaptcha'  ? 'selected' : '' ?>>hCaptcha</option>
+                </select>
+            </div>
 
-        fetch(baseURL + '/settings/email/test', {
-            method: 'POST',
-            body: fd,
-            credentials: 'same-origin'
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            result.style.display = 'block';
-            if (data.ok) {
-                result.style.color = '#10B981';
-                result.textContent = '✓ ' + data.message;
-            } else {
-                result.style.color = '#EF4444';
-                result.textContent = '✕ ' + (data.error || 'Unknown error');
-            }
-        })
-        .catch(function (err) {
-            result.style.display = 'block';
-            result.style.color = '#EF4444';
-            result.textContent = '✕ Request failed: ' + err.message;
-        })
-        .finally(function () {
-            btn.disabled = false;
-            btn.textContent = 'Send Test';
-        });
-    }
-    </script>
+            <div class="form-group">
+                <label class="form-label">Site Key</label>
+                <input type="text" name="captcha_site_key" value="<?= htmlspecialchars($settings['captcha_site_key'] ?? '') ?>" placeholder="Public site key" class="form-input font-mono">
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                    Get this from your captcha provider dashboard.
+                </span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Secret Key</label>
+                <input type="password" name="captcha_secret_key" placeholder="<?= !empty($settings['captcha_secret_key']) ? '•••••••• (leave blank to keep current)' : 'Private secret key' ?>" class="form-input font-mono" autocomplete="new-password">
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                    Stored in your database. Never displayed again.
+                </span>
+            </div>
+
+            <div style="background: rgba(110,123,242,0.08); border: 1px solid var(--accent-border); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 16px; font-size: 12px; color: var(--text-secondary);">
+                <strong style="color: var(--accent-text);">Setup guide for Turnstile:</strong>
+                <ol style="margin: 6px 0 0 20px; padding: 0; line-height: 1.8;">
+                    <li>Sign in at <a href="https://dash.cloudflare.com" target="_blank" style="color: var(--accent);">dash.cloudflare.com</a></li>
+                    <li>Go to <strong>Turnstile</strong> in the sidebar</li>
+                    <li>Click <strong>Add site</strong>, enter your hostname (e.g. <code>links.yourdomain.com</code>)</li>
+                    <li>Copy the Site Key and Secret Key into the fields above</li>
+                </ol>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+        </form>
+    </div>
 
 <?php endif; ?>
 
+<?php if ($currentTab === 'email' && $isAdmin): ?>
+<script>
+function toggleDriverFields() {
+    var driver = document.getElementById('mailDriver');
+    var smtp = document.getElementById('smtpFields');
+    if (!driver || !smtp) return;
+    smtp.style.display = (driver.value === 'smtp') ? 'block' : 'none';
+}
+toggleDriverFields();
+
+function sendTestEmail() {
+    var btn = document.getElementById('testEmailBtn');
+    var input = document.getElementById('testEmailInput');
+    var result = document.getElementById('testEmailResult');
+    var baseURL = '<?= $baseURL ?>';
+
+    var email = input.value.trim();
+    if (!email) {
+        result.style.display = 'block';
+        result.style.color = '#EF4444';
+        result.textContent = 'Enter an email address first.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    result.style.display = 'none';
+
+    var fd = new FormData();
+    fd.append('test_email', email);
+    fd.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+
+    fetch(baseURL + '/settings/email/test', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin'
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        result.style.display = 'block';
+        if (data.ok) {
+            result.style.color = '#10B981';
+            result.textContent = '✓ ' + data.message;
+        } else {
+            result.style.color = '#EF4444';
+            result.textContent = '✕ ' + (data.error || 'Unknown error');
+        }
+    })
+    .catch(function (err) {
+        result.style.display = 'block';
+        result.style.color = '#EF4444';
+        result.textContent = '✕ Request failed: ' + err.message;
+    })
+    .finally(function () {
+        btn.disabled = false;
+        btn.textContent = 'Send Test';
+    });
+}
+</script>
+<?php endif; ?>
 <?php
 $slot = ob_get_clean();
 $pageTitle = "Settings - LinkForge";

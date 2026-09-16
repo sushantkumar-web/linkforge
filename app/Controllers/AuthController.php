@@ -28,6 +28,12 @@ class AuthController {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $remember = !empty($_POST['remember_me']);
+        // Captcha check (no-op if disabled)
+$captchaResult = \App\Core\Captcha::verify();
+if ($captchaResult !== true) {
+    http_response_code(400);
+    die("<div style='font-family:sans-serif;text-align:center;padding:50px;'><h2>Verification failed</h2><p>" . htmlspecialchars($captchaResult) . "</p><p><a href='login'>Try again</a></p></div>");
+}
 
         if (!$email || !$password) {
             die("Please enter both email and password.");
@@ -150,6 +156,12 @@ class AuthController {
 
 public function forgotPassword() {
     $email = filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL);
+    // Captcha check
+$captchaResult = \App\Core\Captcha::verify();
+if ($captchaResult !== true) {
+    flash('error', $captchaResult);
+    $this->redirectTo('/forgot-password');
+}
 
     // Always show the same response to avoid user enumeration
     $genericMessage = 'If that email is registered, a password reset link has been sent.';

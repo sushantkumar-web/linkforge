@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 define('LINKFORGE_START', microtime(true));
-define('APP_VERSION', '1.0.4');
+define('APP_VERSION', '1.1.0');
 // 1. Hardened Session Settings (Cloudflare & Subpath Aware)
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
     || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
@@ -82,5 +82,19 @@ if ($baseDir !== '/' && strpos($uri, $baseDir) === 0) {
 }
 $uri = '/' . trim($uri, '/');
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Auto-run pending migrations in local development only.
+// In production this does nothing (define APP_ENV=production in config).
+$isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', 'localhost:80'], true)
+        || str_starts_with($_SERVER['HTTP_HOST'] ?? '', 'localhost')
+        || str_starts_with($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1');
+
+if ($isLocal && file_exists(BASE_PATH . '/config/config.php')) {
+    try {
+        \App\Core\MigrationRunner::run();
+    } catch (\Throwable $e) {
+        error_log('[Auto-migrate] ' . $e->getMessage());
+    }
+}
 
 require BASE_PATH . '/routes/web.php';

@@ -1,457 +1,452 @@
 <?php
 ob_start();
 $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
+$isSuperAdmin = ($_SESSION['role'] ?? 'user') === 'super_admin';
+$firstName = explode('@', $_SESSION['user_email'] ?? 'there')[0];
+
+// Greeting based on time of day
+$hour = (int)date('G');
+$greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+
+// Helper: render a horizontal breakdown bar
+function renderBreakdownRow($name, $count, $total, $color = '#6E7BF2') {
+    $pct = $total > 0 ? round(($count / $total) * 100, 1) : 0;
+    $nameEsc = htmlspecialchars($name);
+    echo '<div style="margin-bottom: 12px;">';
+    echo '  <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">';
+    echo "    <span style=\"color: var(--text-primary);\">{$nameEsc}</span>";
+    echo "    <span style=\"color: var(--text-muted); font-family: monospace;\">{$count} <span style=\"color: var(--text-secondary);\">({$pct}%)</span></span>";
+    echo '  </div>';
+    echo '  <div style="height: 6px; background: var(--bg-app); border-radius: 3px; overflow: hidden;">';
+    echo "    <div style=\"height: 100%; width: {$pct}%; background: {$color}; border-radius: 3px;\"></div>";
+    echo '  </div>';
+    echo '</div>';
+}
 ?>
 
-<!-- Flatpickr Assets -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
-
 <style>
-.lf-modal-backdrop {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    z-index: 99999;
-    align-items: center;
-    justify-content: center;
+.dash-greeting {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
 }
-.lf-modal-backdrop.active {
-    display: flex !important;
+.dash-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
 }
-.lf-modal-card {
-    background: #16191F;
-    border: 1px solid #282C34;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 480px;
-    padding: 24px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-}
-.preset-pills {
+.dash-kpi-trend {
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 6px;
     display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.dash-kpi-trend.up { color: #34D399; }
+.dash-kpi-trend.down { color: #F87171; }
+.dash-kpi-trend.neutral { color: var(--text-muted); }
+
+.dash-chart-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+.dash-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.dash-chart-title { font-size: 14px; font-weight: 600; }
+.dash-chart-peak { font-size: 12px; color: var(--text-muted); }
+
+.dash-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 180px;
+    padding: 0 4px;
+}
+.dash-bar-col {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+.dash-bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 2px 2px 0 0;
+    transition: background 0.15s;
+}
+.dash-bar.empty { background: var(--border-subtle); }
+.dash-bar.filled { background: var(--accent); }
+.dash-bar.filled:hover { background: var(--accent-hover); }
+
+.dash-chart-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.dash-grid-2 {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.dash-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.dash-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.dash-card-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+.dash-card-link {
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+.dash-card-link:hover { color: var(--accent-hover); }
+.dash-card-body { padding: 16px 20px; }
+
+/* Top link rows */
+.top-link-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.top-link-row:last-child { border-bottom: none; }
+.top-link-rank {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 20px;
+}
+.top-link-body { flex: 1; min-width: 0; }
+.top-link-code {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    display: block;
+}
+.top-link-code:hover { text-decoration: underline; }
+.top-link-title {
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+.top-link-bar-wrap {
+    height: 4px;
+    background: var(--bg-app);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+.top-link-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+}
+.top-link-clicks {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+
+/* Activity feed */
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+.activity-body { flex: 1; min-width: 0; }
+.activity-line1 {
+    font-size: 13px;
+    color: var(--text-primary);
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    margin-top: 8px;
+    align-items: baseline;
+}
+.activity-code {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+.activity-code:hover { text-decoration: underline; }
+.activity-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    display: flex;
+    gap: 10px;
     flex-wrap: wrap;
 }
-.preset-btn {
-    background: var(--bg-app, #0F1115);
-    border: 1px solid var(--border-color, #282C34);
-    color: var(--text-secondary, #9CA3AF);
-    padding: 4px 8px;
-    border-radius: var(--radius-sm, 6px);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
+.activity-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--bg-app);
+    border: 1px solid var(--border-color);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
 }
-.preset-btn:hover {
-    color: var(--text-primary, #F5F5F5);
-    border-color: var(--accent, #5B5CE2);
+.activity-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-left: auto;
+    font-family: var(--font-mono);
+}
+
+.dash-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+    .dash-grid-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .dash-bars { height: 130px; }
+    .dash-chart-card { padding: 16px; }
+    .dash-card-body { padding: 12px 16px; }
 }
 </style>
-<?php if ($err = flash('error')): ?>
-<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; color: #EF4444; font-size: 13px; font-weight: 500;">
-    <i class="fa-solid fa-circle-exclamation" style="margin-right: 8px;"></i>
-    <?= htmlspecialchars($err) ?>
-</div>
-<?php endif; ?>
 
-<?php if ($taken = flash('slug_taken')): ?>
-<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 16px 18px; margin-bottom: 20px;">
-    <div style="color: #EF4444; font-size: 13px; font-weight: 600; margin-bottom: 8px;">
-        <i class="fa-solid fa-circle-exclamation" style="margin-right: 8px;"></i>
-        The slug <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;"><?= htmlspecialchars($taken['attempted']) ?></code> is already taken globally.
-    </div>
-    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
-        Short codes are the public URL — they must be globally unique across all users. Try one of these instead:
-    </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <?php foreach ($taken['suggestions'] as $s): ?>
-            <button type="button" onclick="useSlug('<?= htmlspecialchars($s) ?>')" class="preset-btn" style="font-family: 'JetBrains Mono', monospace;">
-                <?= htmlspecialchars($s) ?>
-            </button>
-        <?php endforeach; ?>
-    </div>
-</div>
-<script>
-function useSlug(slug) {
-    document.querySelector('input[name="slug"]').value = slug;
-    openModal('createModal');
-    // Focus on the URL field if empty
-    const urlInput = document.querySelector('input[name="url"]');
-    if (urlInput && !urlInput.value) urlInput.focus();
-}
-</script>
-<?php endif; ?>
-
-<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+<!-- Greeting header -->
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
     <div>
-        <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 4px;">Links</h1>
-        <p style="font-size: 13px; color: var(--text-secondary);">Manage, track, and secure your short URLs.</p>
+        <div class="dash-greeting"><?= $greeting ?>, <?= htmlspecialchars(ucfirst($firstName)) ?></div>
+        <div class="dash-subtitle">
+            <?php if ($isSuperAdmin): ?>
+                Instance-wide overview across all users.
+            <?php else: ?>
+                Here's how your links are performing.
+            <?php endif; ?>
+        </div>
     </div>
-    <button type="button" onclick="openModal('createModal')" class="btn btn-primary">+ Create link</button>
+    <div style="display: flex; gap: 8px;">
+        <a href="<?= $baseURL ?>/links" class="btn btn-primary">
+            <i class="fa-solid fa-plus" style="margin-right: 6px; font-size: 11px;"></i> Create link
+        </a>
+    </div>
 </div>
 
-<!-- KPI Summary Cards -->
+<!-- KPI cards -->
 <div class="kpi-grid">
     <div class="kpi-card">
         <div class="label">Total clicks</div>
-        <div class="value"><?= number_format($total_clicks ?? 0) ?></div>
+        <div class="value font-mono"><?= number_format($total_clicks) ?></div>
+        <?php if ($weekTrend != 0): ?>
+            <div class="dash-kpi-trend <?= $weekTrend > 0 ? 'up' : 'down' ?>">
+                <i class="fa-solid fa-arrow-<?= $weekTrend > 0 ? 'up' : 'down' ?>" style="font-size: 9px;"></i>
+                <?= abs($weekTrend) ?>% vs last week
+            </div>
+        <?php else: ?>
+            <div class="dash-kpi-trend neutral"><?= number_format($week_clicks) ?> this week</div>
+        <?php endif; ?>
     </div>
+
     <div class="kpi-card">
         <div class="label">Unique visitors</div>
-        <div class="value"><?= number_format($unique_visitors ?? 0) ?></div>
+        <div class="value font-mono"><?= number_format($unique_visitors) ?></div>
+        <div class="dash-kpi-trend neutral">all time</div>
     </div>
+
     <div class="kpi-card">
         <div class="label">Active links</div>
-        <div class="value"><?= number_format($active_links ?? 0) ?></div>
+        <div class="value font-mono"><?= number_format($active_links) ?></div>
+        <div class="dash-kpi-trend neutral"><?= number_format($total_links) ?> total</div>
     </div>
+
     <div class="kpi-card">
-        <div class="label">Total links</div>
-        <div class="value"><?= number_format(count($recent_links)) ?></div>
+        <div class="label">Today</div>
+        <div class="value font-mono"><?= number_format($today_clicks) ?></div>
+        <div class="dash-kpi-trend neutral"><?= date('D, M j') ?></div>
     </div>
 </div>
 
-<!-- Links Table Card -->
-<div class="table-card">
-    <div class="table-tabs">
-        <a href="<?= $baseURL ?>/?filter=all" class="tab-item <?= ($filter === 'all') ? 'active' : '' ?>">All</a>
-        <a href="<?= $baseURL ?>/?filter=active" class="tab-item <?= ($filter === 'active') ? 'active' : '' ?>">Active</a>
-        <a href="<?= $baseURL ?>/?filter=disabled" class="tab-item <?= ($filter === 'disabled') ? 'active' : '' ?>">Disabled</a>
-        <a href="<?= $baseURL ?>/?filter=expired" class="tab-item <?= ($filter === 'expired') ? 'active' : '' ?>">Expired</a>
+<!-- 30-day chart -->
+<div class="dash-chart-card">
+    <div class="dash-chart-header">
+        <div class="dash-chart-title">Clicks — last 30 days</div>
+        <div class="dash-chart-peak">Peak: <span class="font-mono" style="color: var(--text-primary);"><?= number_format($maxTimeline) ?></span></div>
     </div>
-
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Link / Title</th>
-                <th>Destination</th>
-                <th>Clicks</th>
-                <th>Status</th>
-                <th>Expires</th>
-                <th style="text-align: right;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if(empty($recent_links)): ?>
-                <tr>
-                    <td colspan="6" style="text-align:center; padding: 48px; color: var(--text-muted);">
-                        No links found. Click <strong>+ Create link</strong> to generate your first short URL.
-                    </td>
-                </tr>
-            <?php endif; ?>
-
-            <?php foreach($recent_links as $l): 
-                if (empty($l['id'])) continue;
-                $isExpired = !empty($l['expires_at']) && strtotime($l['expires_at']) <= time();
+    <?php if (array_sum(array_column($timeline, 'count')) === 0): ?>
+        <div class="dash-empty">No clicks in the last 30 days. Share your links to start collecting data.</div>
+    <?php else: ?>
+        <div class="dash-bars">
+            <?php foreach ($timeline as $t):
+                $h = $maxTimeline > 0 ? max(2, round(($t['count'] / $maxTimeline) * 100)) : 2;
             ?>
-            <tr>
-                <td>
-                    <div>
-                        <a href="<?= $baseURL ?>/analytics?id=<?= $l['id'] ?>" class="font-mono" style="color: var(--accent); font-weight: 600;">/<?= htmlspecialchars($l['short_code']) ?></a>
-                    </div>
-                    <div style="font-size: 12px; color: var(--text-secondary);"><?= htmlspecialchars($l['title'] ?? 'Untitled') ?></div>
-                    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
-                        <?php if (!empty($l['pass_hash'])): ?>
-                            <span class="badge" style="background: rgba(91,92,226,0.15); color: #8B8DF8; font-size: 10px;">
-                                <i class="fa-solid fa-lock" style="margin-right: 3px;"></i> Protected
-                            </span>
-                        <?php endif; ?>
-                        <?php if(!empty($l['tags'])): ?>
-                            <?php foreach(explode(',', $l['tags']) as $tag): ?>
-                                <span class="badge badge-tag">#<?= htmlspecialchars(trim($tag)) ?></span>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </td>
-                <td style="max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary);">
-                    <?= htmlspecialchars($l['destination_url']) ?>
-                </td>
-                <td class="font-mono"><?= number_format((int)$l['clicks']) ?></td>
-                <td>
-                    <span class="badge <?= $isExpired ? 'badge-expired' : ($l['status'] === 'active' ? 'badge-active' : 'badge-disabled') ?>">
-                        <?= $isExpired ? 'EXPIRED' : htmlspecialchars($l['status']) ?>
-                    </span>
-                </td>
-                <td style="font-size: 12px; color: var(--text-muted);">
-                    <?= !empty($l['expires_at']) ? date('M j, Y H:i', strtotime($l['expires_at'])) : 'Never' ?>
-                </td>
-                <td style="text-align: right;">
-                    <div style="display: inline-flex; gap: 6px;">
-                        <a href="<?= $baseURL ?>/qr?id=<?= $l['id'] ?>" target="_blank" class="btn btn-secondary btn-sm">QR</a>
-                        <button type="button" onclick="copyToClipboard('<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $baseURL . '/' . $l['short_code'] ?>')" class="btn btn-secondary btn-sm">Copy</button>
-                        
-                        <button type="button" 
-        class="btn btn-secondary btn-sm"
-        data-id="<?= $l['id'] ?>"
-        data-url="<?= htmlspecialchars($l['destination_url'], ENT_QUOTES, 'UTF-8') ?>"
-        data-fallback="<?= htmlspecialchars($l['fallback_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-        data-title="<?= htmlspecialchars($l['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-        data-tags="<?= htmlspecialchars($l['tags'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-        data-expires="<?= htmlspecialchars($l['expires_at'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-        data-protected="<?= !empty($l['pass_hash']) ? '1' : '0' ?>"
-        onclick="openEditModal(this)">
-    Edit
-</button>
-
-                        <form method="POST" action="<?= $baseURL ?>/links/toggle" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                            <input type="hidden" name="link_id" value="<?= $l['id'] ?>">
-                            <button type="submit" class="btn btn-secondary btn-sm"><?= $l['status'] === 'active' ? 'Disable' : 'Enable' ?></button>
-                        </form>
-                        <form method="POST" action="<?= $baseURL ?>/links/delete" style="display:inline;" onsubmit="return confirm('Delete this link permanently?')">
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                            <input type="hidden" name="link_id" value="<?= $l['id'] ?>">
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
+                <div class="dash-bar-col" title="<?= htmlspecialchars($t['label']) ?>: <?= $t['count'] ?> clicks">
+                    <div class="dash-bar <?= $t['count'] === 0 ? 'empty' : 'filled' ?>" style="height: <?= $h ?>%;"></div>
+                </div>
             <?php endforeach; ?>
-        </tbody>
-    </table>
+        </div>
+        <div class="dash-chart-axis">
+            <span><?= htmlspecialchars($timeline[0]['label']) ?></span>
+            <span><?= htmlspecialchars($timeline[14]['label']) ?></span>
+            <span><?= htmlspecialchars($timeline[29]['label']) ?></span>
+        </div>
+    <?php endif; ?>
 </div>
 
-<!-- Modal: Create Link -->
-<div id="createModal" class="lf-modal-backdrop">
-    <div class="lf-modal-card">
-        <h3 style="font-size: 16px; margin-bottom: 16px;">Create a new link</h3>
-        <form method="POST" action="<?= $baseURL ?>/links/create">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            
-            <div class="form-group">
-                <label class="form-label">Destination URL</label>
-                <input type="url" name="url" placeholder="https://example.com/long-page" required class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Title (optional)</label>
-                <input type="text" name="title" placeholder="Campaign or Resource title" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Custom Slug (optional)</label>
-                <input type="text" name="slug" placeholder="e.g. launch" class="form-input font-mono">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Password Protection (optional)</label>
-                <input type="password" name="password" placeholder="Leave blank for public access" autocomplete="new-password" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Tags (comma-separated)</label>
-                <input type="text" name="tags" placeholder="marketing, announcement" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Expiration (optional)</label>
-                <div style="position: relative;">
-                    <input type="text" name="expires_at" id="createExpiresAt" placeholder="Pick date & time (or use presets below)" class="form-input" style="cursor: pointer;">
-                    <i class="fa-regular fa-calendar" style="position: absolute; right: 12px; top: 12px; color: var(--text-muted); pointer-events: none;"></i>
-                </div>
-                <div class="preset-pills">
-                    <button type="button" class="preset-btn" onclick="setPreset('create', 24)">+24 Hours</button>
-                    <button type="button" class="preset-btn" onclick="setPreset('create', 168)">+7 Days</button>
-                    <button type="button" class="preset-btn" onclick="setPreset('create', 720)">+30 Days</button>
-                    <button type="button" class="preset-btn" onclick="clearPreset('create')" style="color: var(--status-expired-text);">Clear</button>
-                </div>
-            </div>
-            <div class="form-group">
-    <label class="form-label">Expiration Fallback URL (optional)</label>
-    <input type="url" name="fallback_url" placeholder="https://example.com/campaign-ended" class="form-input">
-    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
-        Where visitors will be sent if the link expires. If left empty, an HTTP 410 page is shown.
-    </span>
-</div>
+<!-- Two-column grid: Top links + Recent activity -->
+<div class="dash-grid-2">
 
-            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-                <button type="button" onclick="closeModal('createModal')" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create link</button>
-            </div>
-        </form>
+    <!-- Top performing links -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div class="dash-card-title">Top performing links</div>
+            <a href="<?= $baseURL ?>/links" class="dash-card-link">View all →</a>
+        </div>
+        <div class="dash-card-body">
+            <?php if (empty($top_links)): ?>
+                <div class="dash-empty">No links yet. Create your first one to see performance here.</div>
+            <?php else: ?>
+                <?php foreach ($top_links as $i => $tl):
+                    $barPct = $topMax > 0 ? max(2, round(((int)$tl['clicks'] / $topMax) * 100)) : 2;
+                ?>
+                    <div class="top-link-row">
+                        <div class="top-link-rank"><?= $i + 1 ?></div>
+                        <div class="top-link-body">
+                            <a href="<?= $baseURL ?>/link?id=<?= (int)$tl['id'] ?>" class="top-link-code">/<?= htmlspecialchars($tl['short_code']) ?></a>
+                            <div class="top-link-title"><?= htmlspecialchars($tl['title'] ?: 'Untitled') ?></div>
+                            <div class="top-link-bar-wrap">
+                                <div class="top-link-bar" style="width: <?= $barPct ?>%;"></div>
+                            </div>
+                        </div>
+                        <div class="top-link-clicks"><?= number_format((int)$tl['clicks']) ?></div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Recent activity -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div class="dash-card-title">Recent activity</div>
+            <span style="font-size: 11px; color: var(--text-muted);">Last <?= count($recent_activity) ?></span>
+        </div>
+        <div class="dash-card-body">
+            <?php if (empty($recent_activity)): ?>
+                <div class="dash-empty">No clicks recorded yet.</div>
+            <?php else: ?>
+                <?php foreach ($recent_activity as $a):
+                    $ago = time() - strtotime($a['clicked_at']);
+                    if ($ago < 60)      $rel = 'just now';
+                    elseif ($ago < 3600) $rel = floor($ago / 60) . 'm ago';
+                    elseif ($ago < 86400) $rel = floor($ago / 3600) . 'h ago';
+                    else                 $rel = floor($ago / 86400) . 'd ago';
+                ?>
+                    <div class="activity-item">
+                        <div class="activity-dot"></div>
+                        <div class="activity-body">
+                            <div class="activity-line1">
+                                <a href="<?= $baseURL ?>/link?id=<?= (int)$a['link_id'] ?>" class="activity-code">/<?= htmlspecialchars($a['short_code']) ?></a>
+                                <span style="color: var(--text-secondary); font-size: 12px;">clicked</span>
+                            </div>
+                            <div class="activity-meta">
+                                <span class="activity-badge"><?= htmlspecialchars($a['device_type']) ?></span>
+                                <span class="activity-badge"><?= htmlspecialchars($a['browser']) ?></span>
+                                <?php if (!empty($a['referrer']) && $a['referrer'] !== 'Direct'): ?>
+                                    <span>from <?= htmlspecialchars(mb_substr($a['referrer'], 0, 24)) ?></span>
+                                <?php else: ?>
+                                    <span>direct</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="activity-time"><?= $rel ?></div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
-<!-- Modal: Edit Link -->
-<div id="editModal" class="lf-modal-backdrop">
-    <div class="lf-modal-card">
-        <h3 style="font-size: 16px; margin-bottom: 16px;">Edit Link</h3>
-        <form method="POST" action="<?= $baseURL ?>/links/update">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            <input type="hidden" name="link_id" id="editLinkId">
-            
-            <div class="form-group">
-                <label class="form-label">Destination URL</label>
-                <input type="url" name="url" id="editUrl" required class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Title</label>
-                <input type="text" name="title" id="editTitle" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Password Protection</label>
-                <input type="password" name="password" id="editPassword" placeholder="Enter new password" autocomplete="new-password" class="form-input">
-                <div id="removePasswordContainer" style="margin-top: 8px; display: none;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--status-expired-text); cursor: pointer;">
-                        <input type="checkbox" name="remove_password" id="removePasswordCheckbox" value="1">
-                        Remove password protection from this link
-                    </label>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Tags (comma-separated)</label>
-                <input type="text" name="tags" id="editTags" class="form-input">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Expiration</label>
-                <div style="position: relative;">
-                    <input type="text" name="expires_at" id="editExpiresAt" placeholder="Pick date & time (or leave blank for permanent)" class="form-input" style="cursor: pointer;">
-                    <i class="fa-regular fa-calendar" style="position: absolute; right: 12px; top: 12px; color: var(--text-muted); pointer-events: none;"></i>
-                </div>
-                <div class="preset-pills">
-                    <button type="button" class="preset-btn" onclick="setPreset('edit', 24)">+24 Hours</button>
-                    <button type="button" class="preset-btn" onclick="setPreset('edit', 168)">+7 Days</button>
-                    <button type="button" class="preset-btn" onclick="setPreset('edit', 720)">+30 Days</button>
-                    <button type="button" class="preset-btn" onclick="clearPreset('edit')" style="color: var(--status-expired-text);">Clear / Never</button>
-                </div>
-            </div>
-            <div class="form-group">
-    <label class="form-label">Expiration Fallback URL</label>
-    <input type="url" name="fallback_url" id="editFallbackUrl" placeholder="https://example.com/campaign-ended" class="form-input">
-    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
-        Where visitors will be sent if the link expires.
-    </span>
-</div>
+<!-- Bottom row: Traffic sources + Devices -->
+<div class="dash-grid-2" style="grid-template-columns: 1fr 1fr;">
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div class="dash-card-title">Top traffic sources</div>
+            <a href="<?= $baseURL ?>/analytics" class="dash-card-link">Analytics →</a>
+        </div>
+        <div class="dash-card-body">
+            <?php if (empty($top_referrers)): ?>
+                <div class="dash-empty">No referrer data yet.</div>
+            <?php else: ?>
+                <?php foreach ($top_referrers as $r):
+                    renderBreakdownRow($r['name'], (int)$r['count'], $total_clicks, '#6E7BF2');
+                endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-                <button type="button" onclick="closeModal('editModal')" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save changes</button>
-            </div>
-        </form>
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div class="dash-card-title">Devices</div>
+        </div>
+        <div class="dash-card-body">
+            <?php if (empty($devices)): ?>
+                <div class="dash-empty">No device data yet.</div>
+            <?php else: ?>
+                <?php foreach ($devices as $d):
+                    renderBreakdownRow($d['name'], (int)$d['count'], $total_clicks, '#34D399');
+                endforeach; ?>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
-
-<script>
-window.createPicker = null;
-window.editPicker = null;
-
-window.initPickers = function() {
-    if (typeof flatpickr !== 'undefined') {
-        window.createPicker = flatpickr("#createExpiresAt", {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i:00",
-            altInput: true,
-            altFormat: "M j, Y h:i K",
-            minDate: "today",
-            time_24hr: false
-        });
-
-        window.editPicker = flatpickr("#editExpiresAt", {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i:00",
-            altInput: true,
-            altFormat: "M j, Y h:i K",
-            time_24hr: false
-        });
-    }
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', window.initPickers);
-} else {
-    window.initPickers();
-}
-
-document.addEventListener('click', function(e) {
-    if (e.target && e.target.classList.contains('lf-modal-backdrop')) {
-        window.closeModal(e.target.id);
-    }
-});
-
-window.openModal = function(id) {
-    var modal = document.getElementById(id);
-    if (modal) {
-        modal.classList.add('active');
-    }
-};
-
-window.closeModal = function(id) {
-    var modal = document.getElementById(id);
-    if (modal) {
-        modal.classList.remove('active');
-    }
-};
-
-window.openEditModal = function(button) {
-    try {
-        var id = button.getAttribute('data-id') || '';
-        var url = button.getAttribute('data-url') || '';
-        var title = button.getAttribute('data-title') || '';
-        var tags = button.getAttribute('data-tags') || '';
-        var expires = button.getAttribute('data-expires') || '';
-        var isProtected = button.getAttribute('data-protected') === '1';
-        var fallback = button.getAttribute('data-fallback') || '';
-var fallbackInput = document.getElementById('editFallbackUrl');
-if (fallbackInput) {
-    fallbackInput.value = fallback;
-}
-
-        document.getElementById('editLinkId').value = id;
-        document.getElementById('editUrl').value = url;
-        document.getElementById('editTitle').value = title;
-        document.getElementById('editTags').value = tags;
-
-        var passInput = document.getElementById('editPassword');
-        if (passInput) passInput.value = '';
-
-        var removeContainer = document.getElementById('removePasswordContainer');
-        var removeCheckbox = document.getElementById('removePasswordCheckbox');
-        if (removeCheckbox) removeCheckbox.checked = false;
-        if (removeContainer) {
-            removeContainer.style.display = isProtected ? 'block' : 'none';
-        }
-
-        if (window.editPicker && typeof window.editPicker.setDate === 'function') {
-            if (expires && expires !== 'Never') {
-                window.editPicker.setDate(expires, true);
-            } else {
-                window.editPicker.clear();
-            }
-        } else {
-            var nativeInput = document.getElementById('editExpiresAt');
-            if (nativeInput) nativeInput.value = (expires && expires !== 'Never') ? expires : '';
-        }
-
-        window.openModal('editModal');
-    } catch (err) {
-        console.error("LinkForge Edit Modal Error:", err);
-    }
-};
-
-window.setPreset = function(modalType, hoursToAdd) {
-    var targetDate = new Date(Date.now() + hoursToAdd * 3600 * 1000);
-    var picker = (modalType === 'create') ? window.createPicker : window.editPicker;
-    if (picker && typeof picker.setDate === 'function') {
-        picker.setDate(targetDate, true);
-    }
-};
-
-window.clearPreset = function(modalType) {
-    var picker = (modalType === 'create') ? window.createPicker : window.editPicker;
-    if (picker && typeof picker.clear === 'function') {
-        picker.clear();
-    } else {
-        var inputId = (modalType === 'create') ? 'createExpiresAt' : 'editExpiresAt';
-        var el = document.getElementById(inputId);
-        if (el) el.value = '';
-    }
-};
-</script>
 
 <?php
 $slot = ob_get_clean();
-$pageTitle = "Links - LinkForge";
+$pageTitle = "Overview - LinkForge";
 require BASE_PATH . '/resources/views/layouts/app.php';

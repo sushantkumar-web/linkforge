@@ -8,6 +8,7 @@ class ApiController {
     private $user_id;
     private $api_key_id;
     private $scopes = [];
+    private $rate_limit = 60;
 
     public function __construct() {
         header('Content-Type: application/json');
@@ -39,12 +40,29 @@ class ApiController {
 
         // 2. Set class properties for later use
         $this->user_id = (int)$apiKey['user_id'];
-        $this->api_key_id = (int)$apiKey['id'];
-        $this->scopes = array_map('trim', explode(',', $apiKey['scopes']));
+$this->api_key_id = (int)$apiKey['id'];
+$this->scopes = array_map('trim', explode(',', $apiKey['scopes']));
+$this->rate_limit = (int)($apiKey['rate_limit_rpm'] ?? 60);
 
-        // 3. Update last_used_at and total_requests
-        $updateStmt = $pdo->prepare("UPDATE api_keys SET last_used_at = NOW(), total_requests = total_requests + 1 WHERE id = ?");
-        $updateStmt->execute([$this->api_key_id]);
+// 3. Rate limit check — count requests in the last 60 seconds
+$rateStmt = $pdo->prepare("
+    SELECT COUNT(*) FROM api_request_logs
+    WHERE api_key_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+");
+$rateStmt->execute([$this->api_key_id]);
+$recent = (int)$rateStmt->fetchColumn();
+
+if ($recent >= $this->rate_limit) {
+    header('X-RateLimit-Limit: ' . $this->rate_limit);
+    header('X-RateLimit-Remaining: 0');
+    header('X-RateLimit-Reset: ' . (time() + 60));
+    header('Retry-After: 60');
+    $this->response(429, ['error' => 'Rate limit exceeded. Try again in 60 seconds.']);
+}
+
+// 4. Update last_used_at and total_requests
+$updateStmt = $pdo->prepare("UPDATE api_keys SET last_used_at = NOW(), total_requests = total_requests + 1 WHERE id = ?");
+$updateStmt->execute([$this->api_key_id]);
     }
 
     /**
@@ -60,25 +78,48 @@ class ApiController {
      * Internal JSON response helper with telemetry logging.
      */
     private function response(int $code, array $payload) {
-        // Log the request to the telemetry table if we have a valid API key ID
-        if ($this->api_key_id) {
-            try {
-                $pdo = Database::getInstance();
-                $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-                $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
-                $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
-                
-                $logStmt = $pdo->prepare("INSERT INTO api_request_logs (api_key_id, endpoint, http_method, status_code, ip_address) VALUES (?, ?, ?, ?, ?)");
-                $logStmt->execute([$this->api_key_id, $uri, $method, $code, $ip]);
-            } catch (\Exception $e) {
-                // Fail silently for logging errors to not break the API response
-            }
-        }
+    // Rate limit headers on every response (when we have a key)
+    if ($this->api_key_id) {
+        try {
+            $pdo = Database::getInstance();
+            $rateStmt = $pdo->prepare("
+                SELECT COUNT(*) FROM api_request_logs
+                WHERE api_key_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+            ");
+            $rateStmt->execute([$this->api_key_id]);
+            $used = (int)$rateStmt->fetchColumn();
+            $remaining = max(0, $this->rate_limit - $used - 1);
 
-        http_response_code($code);
-        echo json_encode($payload);
-        exit;
+            header('X-RateLimit-Limit: ' . $this->rate_limit);
+            header('X-RateLimit-Remaining: ' . $remaining);
+            header('X-RateLimit-Reset: ' . (time() + 60));
+        } catch (\Throwable $e) {
+            // Don't let header logic break the response
+        }
     }
+
+    // Telemetry log
+    if ($this->api_key_id) {
+        try {
+            $pdo = Database::getInstance();
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
+            $uri = $_SERVER['REQUEST_URI'] ?? 'UNKNOWN';
+
+            $logStmt = $pdo->prepare("
+                INSERT INTO api_request_logs (api_key_id, endpoint, http_method, status_code, ip_address)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $logStmt->execute([$this->api_key_id, $uri, $method, $code, $ip]);
+        } catch (\Throwable $e) {
+            error_log('[API telemetry] ' . $e->getMessage());
+        }
+    }
+
+    http_response_code($code);
+    echo json_encode($payload);
+    exit;
+}
 
     /**
      * Dispatcher for incoming /api/v1/ requests.
@@ -132,18 +173,65 @@ class ApiController {
      * GET /api/v1/links
      */
     public function index() {
-        $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT id, title, short_code, destination_url, clicks, status, expires_at, created_at, updated_at FROM links WHERE user_id = ? ORDER BY created_at DESC");
-        $stmt->execute([$this->user_id]);
-        $links = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $limit = (int)($_GET['limit'] ?? 50);
+    if ($limit < 1) $limit = 1;
+    if ($limit > 100) $limit = 100;
 
-        $baseURL = "http://" . $_SERVER['HTTP_HOST'] . str_replace('/index.php', '', $_SERVER['PHP_SELF']);
-        foreach ($links as &$link) {
-            $link['short_url'] = $baseURL . '/' . $link['short_code'];
+    $cursor = $_GET['cursor'] ?? null;
+    $cursorId = null;
+    if ($cursor) {
+        // Cursor is base64-encoded "id"
+        $decoded = base64_decode($cursor, true);
+        if ($decoded !== false && ctype_digit((string)$decoded)) {
+            $cursorId = (int)$decoded;
         }
-
-        $this->response(200, ['status' => 'success', 'count' => count($links), 'data' => $links]);
     }
+
+    $pdo = Database::getInstance();
+
+    // Fetch limit+1 to know if there's a next page
+    $sql = "
+        SELECT id, title, short_code, destination_url, clicks, status, expires_at, created_at, updated_at
+        FROM links
+        WHERE user_id = ?
+    ";
+    $params = [$this->user_id];
+
+    if ($cursorId !== null) {
+        $sql .= " AND id < ?";
+        $params[] = $cursorId;
+    }
+
+    $sql .= " ORDER BY id DESC LIMIT " . ($limit + 1);
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $hasMore = count($rows) > $limit;
+    if ($hasMore) array_pop($rows); // drop the probe row
+
+    $baseURL = "http://" . $_SERVER['HTTP_HOST'] . str_replace('/index.php', '', $_SERVER['PHP_SELF']);
+    foreach ($rows as &$row) {
+        $row['short_url'] = $baseURL . '/' . $row['short_code'];
+    }
+
+    $nextCursor = null;
+    if ($hasMore && !empty($rows)) {
+        $nextCursor = base64_encode((string)end($rows)['id']);
+    }
+
+    $this->response(200, [
+        'status' => 'success',
+        'count'  => count($rows),
+        'data'   => $rows,
+        'pagination' => [
+            'limit'       => $limit,
+            'has_more'    => $hasMore,
+            'next_cursor' => $nextCursor,
+        ],
+    ]);
+}
 
     /**
      * GET /api/v1/links/{id}

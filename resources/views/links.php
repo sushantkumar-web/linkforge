@@ -29,6 +29,8 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
     border-radius: 12px;
     width: 100%;
     max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
     padding: 24px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
 }
@@ -80,6 +82,55 @@ $baseURL = str_replace('/index.php', '', $_SERVER['PHP_SELF']);
 #bulkBar.active {
     transform: translateX(-50%) translateY(0);
     pointer-events: auto;
+}
+/* Targeting rules UI */
+.targeting-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 1.5fr 32px;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+.targeting-row select,
+.targeting-row input {
+    font-size: 12px;
+    padding: 6px 8px;
+    background: var(--bg-app, #0F1115);
+    border: 1px solid var(--border-color, #282C34);
+    border-radius: 6px;
+    color: var(--text-primary, #F5F5F5);
+}
+.targeting-row .remove-rule {
+    background: transparent;
+    border: 1px solid var(--border-color, #282C34);
+    border-radius: 6px;
+    color: #EF4444;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 12px;
+    line-height: 1;
+}
+.targeting-row .remove-rule:hover {
+    background: rgba(239,68,68,0.1);
+}
+.targeting-help {
+    font-size: 11px;
+    color: var(--text-muted, #6B7280);
+    margin-top: 6px;
+}
+.add-rule-btn {
+    background: transparent;
+    border: 1px dashed var(--border-color, #282C34);
+    border-radius: 6px;
+    color: var(--text-secondary, #9CA3AF);
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 6px;
+}
+.add-rule-btn:hover {
+    color: var(--accent, #5B5CE2);
+    border-color: var(--accent, #5B5CE2);
 }
 </style>
 
@@ -138,7 +189,7 @@ function useSlug(slug) {
         <i class="fa-solid fa-filter" style="margin-right: 8px; color: var(--accent);"></i>
         Filtering by tag: <strong style="color: var(--accent);">#<?= htmlspecialchars($activeTag) ?></strong>
     </div>
-    <a href="<?= $baseURL ?>/?filter=<?= htmlspecialchars($filter ?? 'all') ?>" class="btn btn-secondary btn-sm">Clear filter</a>
+    <a href="<?= $baseURL ?>/links?filter=<?= htmlspecialchars($filter ?? 'all') ?>" class="btn btn-secondary btn-sm">Clear filter</a>
 </div>
 <?php endif; ?>
 
@@ -157,11 +208,11 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
 
 <div class="table-card">
     <div class="table-tabs">
-        <a href="<?= $baseURL ?>/?filter=all<?= $tagQS ?>" class="tab-item <?= ($filter === 'all') ? 'active' : '' ?>">All</a>
-        <a href="<?= $baseURL ?>/?filter=active<?= $tagQS ?>" class="tab-item <?= ($filter === 'active') ? 'active' : '' ?>">Active</a>
-        <a href="<?= $baseURL ?>/?filter=disabled<?= $tagQS ?>" class="tab-item <?= ($filter === 'disabled') ? 'active' : '' ?>">Disabled</a>
-        <a href="<?= $baseURL ?>/?filter=expired<?= $tagQS ?>" class="tab-item <?= ($filter === 'expired') ? 'active' : '' ?>">Expired</a>
-    </div>
+    <a href="<?= $baseURL ?>/links?filter=all<?= $tagQS ?>" class="tab-item <?= ($filter === 'all') ? 'active' : '' ?>">All</a>
+    <a href="<?= $baseURL ?>/links?filter=active<?= $tagQS ?>" class="tab-item <?= ($filter === 'active') ? 'active' : '' ?>">Active</a>
+    <a href="<?= $baseURL ?>/links?filter=disabled<?= $tagQS ?>" class="tab-item <?= ($filter === 'disabled') ? 'active' : '' ?>">Disabled</a>
+    <a href="<?= $baseURL ?>/links?filter=expired<?= $tagQS ?>" class="tab-item <?= ($filter === 'expired') ? 'active' : '' ?>">Expired</a>
+</div>
 
     <table class="data-table">
         <thead>
@@ -196,7 +247,7 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
                 </td>
                 <td>
                     <div>
-                        <a href="<?= $baseURL ?>/analytics?id=<?= $l['id'] ?>" class="font-mono" style="color: var(--accent); font-weight: 600;">/<?= htmlspecialchars($l['short_code']) ?></a>
+                        <a href="<?= $baseURL ?>/link?id=<?= $l['id'] ?>" class="font-mono" style="color: var(--accent); font-weight: 600;">/<?= htmlspecialchars($l['short_code']) ?></a>
                     </div>
                     <div style="font-size: 12px; color: var(--text-secondary);"><?= htmlspecialchars($l['title'] ?? 'Untitled') ?></div>
                     <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
@@ -207,7 +258,7 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
                         <?php endif; ?>
                         <?php if (!empty($l['tags'])): ?>
                             <?php foreach (explode(',', $l['tags']) as $tag): ?>
-                                <a href="<?= $baseURL ?>/?tag=<?= urlencode(trim($tag)) ?>" style="text-decoration: none;">
+                                <a href="<?= $baseURL ?>/links?tag=<?= urlencode(trim($tag)) ?>" style="text-decoration: none;">
                                     <span class="badge badge-tag" style="cursor: pointer;">#<?= htmlspecialchars(trim($tag)) ?></span>
                                 </a>
                             <?php endforeach; ?>
@@ -304,6 +355,25 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
                 <label class="form-label">Custom Slug (optional)</label>
                 <input type="text" name="slug" placeholder="e.g. launch" class="form-input font-mono">
             </div>
+            <?php
+$pdo = \App\Core\Database::getInstance();
+$domainStmt = $pdo->prepare("SELECT id, hostname, is_primary FROM domains WHERE user_id = ? AND verified_at IS NOT NULL ORDER BY is_primary DESC, hostname ASC");
+$domainStmt->execute([$_SESSION['user_id']]);
+$availableDomains = $domainStmt->fetchAll(\PDO::FETCH_ASSOC);
+?>
+<?php if (!empty($availableDomains)): ?>
+<div class="form-group">
+    <label class="form-label">Domain</label>
+    <select name="domain_id" class="form-input">
+        <option value="">Default (installed host)</option>
+        <?php foreach ($availableDomains as $d): ?>
+            <option value="<?= (int)$d['id'] ?>">
+                <?= htmlspecialchars($d['hostname']) ?><?= $d['is_primary'] ? ' (primary)' : '' ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</div>
+<?php endif; ?>
             <div class="form-group">
                 <label class="form-label">Password Protection (optional)</label>
                 <input type="password" name="password" placeholder="Leave blank for public access" autocomplete="new-password" class="form-input">
@@ -332,6 +402,23 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
                     Where visitors will be sent if the link expires. If left empty, an HTTP 410 page is shown.
                 </span>
             </div>
+            <div class="form-group">
+    <label class="form-label" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="toggleTargeting('create')">
+        <span>Targeting Rules (optional)</span>
+        <i class="fa-solid fa-chevron-down" id="create-targeting-arrow" style="font-size: 11px; transition: transform 0.15s;"></i>
+    </label>
+    <div id="create-targeting-section" style="display: none; margin-top: 10px;">
+        <div id="create-targeting-rules"></div>
+        <button type="button" class="add-rule-btn" onclick="addTargetingRule('create')">
+            <i class="fa-solid fa-plus" style="margin-right: 4px;"></i> Add Rule
+        </button>
+        <div class="targeting-help">
+            Route visitors to different destinations based on device or country. First matching rule wins.
+            Country detection works when LinkForge is behind Cloudflare (all plans).
+        </div>
+        <input type="hidden" name="targeting_json" id="create-targeting-json" value="">
+    </div>
+</div>
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
                 <button type="button" onclick="closeModal('createModal')" class="btn btn-secondary">Cancel</button>
                 <button type="submit" class="btn btn-primary">Create link</button>
@@ -386,6 +473,22 @@ $tagQS = !empty($activeTag) ? '&tag=' . urlencode($activeTag) : '';
                 <label class="form-label">Expiration Fallback URL</label>
                 <input type="url" name="fallback_url" id="editFallbackUrl" placeholder="https://example.com/campaign-ended" class="form-input">
             </div>
+            <div class="form-group">
+    <label class="form-label" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="toggleTargeting('edit')">
+        <span>Targeting Rules (optional)</span>
+        <i class="fa-solid fa-chevron-down" id="edit-targeting-arrow" style="font-size: 11px; transition: transform 0.15s;"></i>
+    </label>
+    <div id="edit-targeting-section" style="display: none; margin-top: 10px;">
+        <div id="edit-targeting-rules"></div>
+        <button type="button" class="add-rule-btn" onclick="addTargetingRule('edit')">
+            <i class="fa-solid fa-plus" style="margin-right: 4px;"></i> Add Rule
+        </button>
+        <div class="targeting-help">
+            Route visitors to different destinations based on device or country. First matching rule wins.
+        </div>
+        <input type="hidden" name="targeting_json" id="edit-targeting-json" value="">
+    </div>
+</div>
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
                 <button type="button" onclick="closeModal('editModal')" class="btn btn-secondary">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save changes</button>
@@ -557,6 +660,115 @@ window.clearPreset = function(modalType) {
         form.submit();
     };
 })();
+// ============================================================
+// TARGETING RULES ENGINE
+// ============================================================
+
+window.toggleTargeting = function(prefix) {
+    var section = document.getElementById(prefix + '-targeting-section');
+    var arrow = document.getElementById(prefix + '-targeting-arrow');
+    if (!section) return;
+    var isHidden = section.style.display === 'none';
+    section.style.display = isHidden ? 'block' : 'none';
+    if (arrow) arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0)';
+};
+
+window.addTargetingRule = function(prefix, type, match, url) {
+    var container = document.getElementById(prefix + '-targeting-rules');
+    if (!container) return;
+
+    var row = document.createElement('div');
+    row.className = 'targeting-row';
+
+    // Type select
+    var select = document.createElement('select');
+    select.innerHTML = '<option value="device">Device</option><option value="country">Country</option>';
+    select.value = type || 'device';
+    select.onchange = function() { updateMatchField(this, row); };
+
+    // Match input
+    var matchInput = document.createElement('input');
+    matchInput.placeholder = select.value === 'device' ? 'mobile / desktop / tablet' : 'ISO code (IN, US, GB)';
+    matchInput.value = match || '';
+    matchInput.className = 'target-match';
+
+    // URL input
+    var urlInput = document.createElement('input');
+    urlInput.type = 'url';
+    urlInput.placeholder = 'https://special-page.com';
+    urlInput.value = url || '';
+    urlInput.className = 'target-url';
+
+    // Remove button
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-rule';
+    removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    removeBtn.onclick = function() { row.remove(); };
+
+    row.appendChild(select);
+    row.appendChild(matchInput);
+    row.appendChild(urlInput);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+
+    // Rebuild JSON on any change
+    [select, matchInput, urlInput].forEach(function(el) {
+        el.addEventListener('input', function() { syncTargeting(prefix); });
+        el.addEventListener('change', function() { syncTargeting(prefix); });
+    });
+};
+
+window.updateMatchField = function(select, row) {
+    var matchInput = row.querySelector('.target-match');
+    if (!matchInput) return;
+    matchInput.placeholder = select.value === 'device' ? 'mobile / desktop / tablet' : 'ISO code (IN, US, GB)';
+    matchInput.value = '';
+};
+
+window.syncTargeting = function(prefix) {
+    var container = document.getElementById(prefix + '-targeting-rules');
+    var hidden = document.getElementById(prefix + '-targeting-json');
+    if (!container || !hidden) return;
+
+    var rules = [];
+    container.querySelectorAll('.targeting-row').forEach(function(row) {
+        var type = row.querySelector('select').value;
+        var match = row.querySelector('.target-match').value.trim();
+        var url = row.querySelector('.target-url').value.trim();
+        if (type && match && url) {
+            rules.push({ type: type, match: match, url: url });
+        }
+    });
+
+    hidden.value = rules.length > 0 ? JSON.stringify(rules) : '';
+};
+
+window.loadTargetingRules = function(prefix, jsonString) {
+    var container = document.getElementById(prefix + '-targeting-rules');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!jsonString) return;
+
+    try {
+        var rules = JSON.parse(jsonString);
+        if (!Array.isArray(rules)) return;
+        rules.forEach(function(r) {
+            window.addTargetingRule(prefix, r.type, r.match, r.url);
+        });
+        if (rules.length > 0) {
+            // Auto-expand section if it has rules
+            var section = document.getElementById(prefix + '-targeting-section');
+            var arrow = document.getElementById(prefix + '-targeting-arrow');
+            if (section) section.style.display = 'block';
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+        }
+        window.syncTargeting(prefix);
+    } catch (e) {
+        console.error('Invalid targeting JSON:', e);
+    }
+};
 </script>
 
 <?php

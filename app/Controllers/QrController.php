@@ -15,7 +15,7 @@ class QrController {
         //    They are cosmetic, but any output before headers breaks binary responses.
         $prevErrorReporting = error_reporting();
         $prevDisplayErrors  = ini_get('display_errors');
-        error_reporting(E_ALL & ~E_DEPRECATED & ~E_WARNING & ~E_NOTICE & ~E_STRICT);
+        error_reporting(E_ALL & ~E_DEPRECATED & ~E_WARNING & ~E_NOTICE);
         ini_set('display_errors', '0');
 
         // 3. Buffer everything so any stray output is swallowed, not sent
